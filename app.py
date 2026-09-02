@@ -1570,22 +1570,37 @@ channel_summary = filtered.groupby("channel", as_index=False).agg(
     quantity=("quantity", "sum"),
 )
 channel_summary["sales_million"] = (channel_summary["sales"] / 1_000_000).round(1)
+channel_sales_total = channel_summary["sales"].sum()
+channel_summary["sales_share"] = np.where(
+    channel_sales_total == 0,
+    0,
+    channel_summary["sales"] / channel_sales_total * 100,
+).round(1)
 left, right = st.columns(2)
 with left:
-    section_title("채널별 매출 집계", "백만원")
+    section_title("채널별 매출 집계", "백만원, %")
     channel_sales_fig = px.bar(
         channel_summary.sort_values("sales"),
         x="sales_million",
         y="channel",
         orientation="h",
         color="channel",
+        custom_data=["sales_share", "quantity"],
         color_discrete_sequence=[
             COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]
         ],
-        labels={"sales_million": "매출액", "channel": "채널"},
+        labels={"sales_million": "매출액", "sales_share": "매출 비중", "quantity": "판매수량", "channel": "채널"},
     )
     channel_sales_fig.update_traces(
-        texttemplate="%{x:,.1f}", textposition="outside", cliponaxis=False
+        texttemplate="%{x:,.1f} (%{customdata[0]:.1f}%)",
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate=(
+            "Channel1_1: %{y}<br>"
+            "매출액: %{x:,.1f}백만원<br>"
+            "매출 비중: %{customdata[0]:.1f}%<br>"
+            "판매수량: %{customdata[1]:,.1f} EA<extra></extra>"
+        ),
     )
     channel_sales_fig = style_figure(channel_sales_fig, 360)
     channel_sales_fig.update_layout(showlegend=False, margin=dict(l=18, r=90, t=58, b=16))
