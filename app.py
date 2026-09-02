@@ -20,63 +20,112 @@ st.set_page_config(
 
 
 COLORS = {
-    "primary": "#7C3AED",
-    "secondary": "#EC4899",
-    "accent": "#F59E0B",
-    "success": "#10B981",
-    "muted": "#64748B",
-    "grid": "#E2E8F0",
+    "primary": "#194F95",
+    "secondary": "#245FA3",
+    "accent": "#3F78B8",
+    "success": "#6697C8",
+    "muted": "#617B98",
+    "grid": "#D9E3EC",
 }
+BLUE_PALETTE = ["#143D75", "#194F95", "#245FA3", "#3F78B8", "#6697C8", "#91B1D7"]
 
 # 집계 로직 변경 시 값을 올리면 기존 Streamlit 데이터 캐시를 즉시 폐기합니다.
-DATA_TRANSFORM_VERSION = 8
+DATA_TRANSFORM_VERSION = 9
 
 
 st.markdown(
     """
     <style>
-        .stApp { background: #F7F7FB; }
-        [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #ECECF2; }
+        .stApp { background: #F4F7FB; }
+        [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #D9E3EC; }
         /* Streamlit의 고정 상단 툴바 아래에서 본문이 시작되도록 여백 확보 */
         .block-container { padding-top: 4.5rem; padding-bottom: 2rem; }
-        .brand { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.04em; color: #211A2F; }
-        .brand-sub { color: #777184; font-size: .9rem; margin-top: -.25rem; }
-        .section-title { font-size: 1.1rem; font-weight: 750; color: #211A2F; margin: .4rem 0 .2rem; }
-        .section-sub { color: #777184; font-size: .84rem; margin-bottom: .8rem; }
+        .st-key-sticky_dashboard_header {
+            position: static;
+        }
+        [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header) {
+            position: sticky; top: 3.75rem; z-index: 900;
+            background: rgba(244, 247, 251, .97);
+            padding: .78rem .15rem .68rem;
+            margin: -.8rem -.15rem .7rem;
+            border-bottom: 1px solid #DCE9F6;
+            box-shadow: 0 8px 18px rgba(30, 64, 175, .06);
+            backdrop-filter: blur(8px);
+        }
+        .st-key-sticky_dashboard_header .brand {
+            font-size: 1.35rem; white-space: nowrap;
+        }
+        .st-key-sticky_dashboard_header .brand-sub {
+            font-size: .8rem; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .brand { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.04em; color: #143D75; }
+        .brand-sub { color: #617B98; font-size: .9rem; margin-top: -.25rem; }
+        .section-title { font-size: 1.1rem; font-weight: 750; color: #143D75; margin: .4rem 0 .2rem; }
+        .section-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: .4rem 0 .2rem; }
+        .section-title-row .section-title { margin: 0; }
+        .section-unit { color: #64748B; font-size: .76rem; font-weight: 500; white-space: nowrap; }
+        .section-sub { color: #617B98; font-size: .84rem; margin-bottom: .8rem; }
         [data-testid="stMetric"] {
-            background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 16px;
+            background: #FFFFFF; border: 1px solid #DCE9F6; border-radius: 16px;
             padding: 18px 20px; box-shadow: 0 3px 14px rgba(42, 32, 60, .04);
         }
-        [data-testid="stMetricLabel"] { color: #777184; }
-        [data-testid="stMetricValue"] { color: #211A2F; }
+        [data-testid="stMetricLabel"] { color: #617B98; }
+        [data-testid="stMetricValue"] { color: #143D75; }
         div[data-testid="stPlotlyChart"] {
-            background: white; border: 1px solid #ECECF2; border-radius: 16px;
-            padding: 8px; box-shadow: 0 3px 14px rgba(42, 32, 60, .04);
+            background: transparent; border: 0; border-radius: 0;
+            padding: 0; box-shadow: none;
         }
         .status-pill {
             display: inline-block; padding: 5px 10px; border-radius: 999px;
-            background: #EDE9FE; color: #6D28D9; font-size: .78rem; font-weight: 700;
+            background: #DCE9F6; color: #194F95; font-size: .78rem; font-weight: 700;
         }
-        .nav-title { color: #9A94A3; font-size: .7rem; font-weight: 800; letter-spacing: .12em; margin: .2rem 0 .55rem; }
+        .nav-title { color: #617B98; font-size: .7rem; font-weight: 800; letter-spacing: .12em; margin: .2rem 0 .55rem; }
         [data-testid="stSidebar"] div[role="radiogroup"] { gap: .45rem; }
         [data-testid="stSidebar"] div[role="radiogroup"] > label {
-            width: 100%; padding: .72rem .78rem; border: 1px solid #ECECF2;
-            border-radius: 12px; background: #FAFAFC; transition: all .15s ease;
+            width: 100%; padding: .72rem .78rem; border: 1px solid #D9E3EC;
+            border-radius: 12px; background: #F8FAFC; transition: all .15s ease;
         }
         [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-            border-color: #C4B5FD; background: #F5F3FF;
+            border-color: #91B1D7; background: #EAF2FA;
         }
         [data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {
-            border-color: #8B5CF6; background: #EDE9FE;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, .10);
+            border-color: #3F78B8; background: #DCE9F6;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, .10);
         }
         [data-testid="stSidebar"] div[role="radiogroup"] input { display: none; }
-        [data-testid="stSidebar"] div[role="radiogroup"] p { font-weight: 700; color: #3E3650; }
-        .insight-box {
-            padding: 15px 18px; border-radius: 14px; background: linear-gradient(90deg, #F5F3FF, #FDF2F8);
-            border: 1px solid #E9D5FF; color: #4C3C63; font-size: .92rem; margin: .7rem 0 1rem;
+        [data-testid="stSidebar"] div[role="radiogroup"] p { font-weight: 700; color: #24496F; }
+        [data-testid="stSidebar"] [data-testid="stExpander"] {
+            margin-bottom: .58rem;
         }
-        .insight-box b { color: #6D28D9; }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details {
+            background: #FFFFFF; border: 1px solid #E2E6EC; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .03); overflow: hidden;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details:hover {
+            border-color: #CBD5E1; box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+            min-height: 46px; padding: .15rem .7rem .15rem .85rem;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+            display: flex; align-items: center; width: 100%; margin: 0;
+            color: #111827; font-size: .9rem; font-weight: 750;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary p span {
+            margin-left: auto; margin-right: .35rem; padding: .16rem .52rem;
+            border-radius: 999px; background: #E5EFF9 !important;
+            color: #245FA3 !important; font-size: .76rem; font-weight: 800;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+            padding: .15rem .75rem .7rem;
+            border-top: 1px solid #F1F5F9;
+        }
+        .insight-box {
+            padding: 15px 18px; border-radius: 14px; background: linear-gradient(90deg, #EAF2FA, #F1F6FB);
+            border: 1px solid #B8D0E8; color: #24496F; font-size: .92rem; margin: .7rem 0 1rem;
+        }
+        .insight-box b { color: #194F95; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -141,12 +190,66 @@ def clean_product_name(product_name: object, product_spec: object) -> str:
     return name or "미분류"
 
 
+def apply_account_encoding(frame: pd.DataFrame, mapping_path: Path) -> pd.DataFrame:
+    """원장 매출처명을 영업 기준 매출처와 2단계 채널 값으로 치환합니다."""
+    source_key = "매출처명"
+    mapping_key = "매출처명(원장기준)"
+    mapped_account = "매출처명(영업기준)"
+    channel_level_1 = "Channel1_1"
+    channel_level_2 = "Channel1_2"
+    required_mapping_columns = {
+        mapping_key, mapped_account, channel_level_1, channel_level_2,
+    }
+    if source_key not in frame.columns:
+        raise ValueError(f"원본 매출 데이터에 조인 키 '{source_key}' 컬럼이 없습니다.")
+    if not mapping_path.exists():
+        raise FileNotFoundError(f"매출처 인코딩 파일이 없습니다: {mapping_path}")
+
+    mapping = pd.read_csv(mapping_path, encoding="utf-8-sig", low_memory=False)
+    mapping.columns = mapping.columns.astype(str).str.replace("\u00a0", " ", regex=False).str.strip()
+    missing_mapping_columns = sorted(required_mapping_columns - set(mapping.columns))
+    if missing_mapping_columns:
+        raise ValueError(
+            "매출처 인코딩 파일에 필수 컬럼이 없습니다: " + ", ".join(missing_mapping_columns)
+        )
+
+    mapping = mapping[[mapping_key, mapped_account, channel_level_1, channel_level_2]].copy()
+    for column in mapping.columns:
+        mapping[column] = mapping[column].fillna("").astype(str).str.replace("\u00a0", " ", regex=False).str.strip()
+    mapping = mapping.loc[mapping[mapping_key].ne("")]
+    duplicated_keys = mapping.loc[mapping[mapping_key].duplicated(keep=False), mapping_key].unique()
+    if len(duplicated_keys):
+        raise ValueError(
+            "매출처 인코딩 파일의 원장기준 키가 중복되었습니다: "
+            + ", ".join(map(str, duplicated_keys[:10]))
+        )
+
+    encoded = frame.copy()
+    encoded[source_key] = encoded[source_key].fillna("").astype(str).str.replace("\u00a0", " ", regex=False).str.strip()
+    # 기존 유통경로는 조인 결과로 대체하므로 원장에서 제거합니다.
+    encoded = encoded.drop(columns=["유통경로"], errors="ignore")
+    encoded = encoded.merge(
+        mapping,
+        how="left",
+        left_on=source_key,
+        right_on=mapping_key,
+        validate="many_to_one",
+    )
+    unmatched = encoded[mapped_account].isna() | encoded[mapped_account].eq("")
+    encoded.loc[unmatched, mapped_account] = "[미매핑] " + encoded.loc[unmatched, source_key]
+    encoded.loc[unmatched, channel_level_1] = "(미매핑)"
+    encoded.loc[unmatched, channel_level_2] = "(미매핑)"
+    return encoded.drop(columns=[source_key, mapping_key], errors="ignore").rename(columns={
+        mapped_account: "account_name",
+        channel_level_1: "channel",
+        channel_level_2: "channel_detail",
+    })
+
+
 def aggregate_query_result(frame: pd.DataFrame) -> pd.DataFrame:
     """원본 쿼리 결과를 대시보드 일별 집계 구조로 변환합니다."""
     korean_column_map = {
         "일자": "date",
-        "유통경로": "channel",
-        "매출처명": "account_name",
         "품목명": "product_name",
         "규격": "product_spec",
         "MC 대분류": "category_large",
@@ -179,6 +282,7 @@ def aggregate_query_result(frame: pd.DataFrame) -> pd.DataFrame:
     dimension_columns = [
         "date",
         "channel",
+        "channel_detail",
         "account_name",
         "product_name",
         "category_large",
@@ -303,7 +407,8 @@ def load_data_from_csv(
     """data 폴더의 모든 CSV를 병합해 대시보드 집계 구조로 변환합니다."""
     del data_version, transform_version  # 캐시 무효화를 위한 함수 인자
     data_dir = Path(__file__).resolve().parent / data_folder
-    csv_paths = sorted(data_dir.glob("*.csv"))
+    mapping_path = data_dir / "매출처_인코딩.csv"
+    csv_paths = sorted(path for path in data_dir.glob("*.csv") if path != mapping_path)
     if not csv_paths:
         raise FileNotFoundError(f"CSV 파일이 없습니다: {data_dir}")
 
@@ -315,22 +420,81 @@ def load_data_from_csv(
             frame = pd.read_csv(csv_path, encoding="cp949", low_memory=False)
         frames.append(frame)
 
-    return aggregate_query_result(pd.concat(frames, ignore_index=True))
+    encoded_frame = apply_account_encoding(pd.concat(frames, ignore_index=True), mapping_path)
+    return aggregate_query_result(encoded_frame)
 
 
 def style_figure(fig: go.Figure, height: int = 350) -> go.Figure:
     fig.update_layout(
         height=height,
         margin=dict(l=18, r=18, t=48, b=16),
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        font=dict(family="Arial, sans-serif", color="#413A4C", size=12),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Arial, sans-serif", color="#334155", size=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        hoverlabel=dict(bgcolor="#211A2F", font_color="white"),
+        hoverlabel=dict(bgcolor="#143D75", font_color="white"),
     )
-    fig.update_xaxes(showgrid=False, linecolor=COLORS["grid"])
-    fig.update_yaxes(gridcolor=COLORS["grid"], zeroline=False)
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor=COLORS["grid"],
+        separatethousands=True,
+        exponentformat="none",
+        showexponent="none",
+        showticklabels=True,
+        automargin=True,
+    )
+    fig.update_yaxes(
+        gridcolor=COLORS["grid"],
+        zeroline=False,
+        separatethousands=True,
+        exponentformat="none",
+        showexponent="none",
+        showticklabels=True,
+        automargin=True,
+    )
+    numeric_axis_keywords = ("매출", "수량", "단가", "금액", "비중", "%")
+    for axis in [*fig.select_xaxes(), *fig.select_yaxes()]:
+        axis_title = axis.title.text or ""
+        if any(keyword in axis_title for keyword in numeric_axis_keywords):
+            axis.update(tickformat=",.1f", hoverformat=",.1f")
+    fig.update_coloraxes(colorbar=dict(tickformat=",.1f"))
     return fig
+
+
+def section_title(title: str, unit: str) -> None:
+    """그래프·표 제목 우측 상단에 단위를 일관된 형식으로 표시합니다."""
+    st.markdown(
+        f'<div class="section-title-row"><div class="section-title">{title}</div>'
+        f'<div class="section-unit">(단위: {unit})</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_filter_dropdown(label: str, options: list, key: str) -> list:
+    """선택 개수를 표시하는 사이드바용 접이식 다중 선택 필터입니다."""
+    normalized_options = list(options)
+    options_state_key = f"{key}__available_options"
+    current_options_signature = tuple(normalized_options)
+    previous_options_signature = st.session_state.get(options_state_key)
+
+    # 상위 필터 변경으로 선택지 구성이 달라지면 새 하위 목록은 전체 선택합니다.
+    if key not in st.session_state or previous_options_signature != current_options_signature:
+        st.session_state[key] = normalized_options
+    else:
+        st.session_state[key] = [
+            value for value in st.session_state[key] if value in normalized_options
+        ]
+    st.session_state[options_state_key] = current_options_signature
+
+    selected_count = len(st.session_state[key])
+    with st.expander(f"**{label}** :blue-background[{selected_count}개]"):
+        return st.multiselect(
+            label,
+            normalized_options,
+            key=key,
+            label_visibility="collapsed",
+            placeholder=f"{label} 선택",
+        )
 
 
 def aggregate_period(frame: pd.DataFrame, frequency: str) -> pd.DataFrame:
@@ -349,18 +513,13 @@ def aggregate_period(frame: pd.DataFrame, frequency: str) -> pd.DataFrame:
 
 
 def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_date: pd.Timestamp) -> None:
-    st.markdown('<div class="brand">Channel Performance Lab</div>', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="brand-sub">{start_date:%Y.%m.%d} — {end_date:%Y.%m.%d} · 채널과 매출처 성과를 교차 분석합니다.</div>',
-        unsafe_allow_html=True,
-    )
-
     channel_count = frame["channel"].nunique()
+    channel_detail_count = frame["channel_detail"].nunique()
     account_count = frame["account_name"].nunique()
     total_sales = frame["sales"].sum()
     total_quantity = frame["quantity"].sum()
     summary_cols = st.columns(4)
-    summary_cols[0].metric("분석 채널", f"{channel_count:,}개")
+    summary_cols[0].metric("채널 1 / 2", f"{channel_count:,} / {channel_detail_count:,}개")
     summary_cols[1].metric("활성 매출처", f"{account_count:,}개")
     summary_cols[2].metric("총 매출", won(total_sales))
     summary_cols[3].metric("판매 수량", f"{total_quantity:,.0f}개")
@@ -379,19 +538,19 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         .rename("sales")
         .reset_index()
     )
-    print(daily_channel)
+    daily_channel["sales_million"] = (daily_channel["sales"] / 1_000_000).round(1)
     trend_fig = px.line(
         daily_channel,
         x="date",
-        y="sales",
+        y="sales_million",
         color="channel",
         markers=True,
         color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-        labels={"date": "일자", "sales": "매출", "channel": "채널"},
+        labels={"date": "일자", "sales_million": "매출(백만원)", "channel": "채널"},
     )
-    st.markdown('<div class="section-title">채널별 일간 매출 흐름</div>', unsafe_allow_html=True)
+    section_title("채널별 일간 매출 흐름", "백만원")
     st.plotly_chart(style_figure(trend_fig, 380), use_container_width=True)
-    with st.expander("일간 채널 집계 데이터 보기"):
+    with st.expander("일간 채널 집계 데이터 보기 (단위: 원)"):
         daily_channel_table = (
             daily_channel.pivot(index="date", columns="channel", values="sales")
             .fillna(0)
@@ -419,6 +578,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         sales=("sales", "sum"),
         quantity=("quantity", "sum"),
     )
+    account_summary["sales_million"] = (account_summary["sales"] / 1_000_000).round(1)
     account_summary["bubble_size"] = account_summary["quantity"].clip(lower=0)
 
     channel_sales = frame.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
@@ -439,24 +599,31 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
 
     left, right = st.columns(2)
     with left:
-        st.markdown('<div class="section-title">매출처 매출 TOP 15</div>', unsafe_allow_html=True)
-        top_accounts = account_summary.nlargest(15, "sales").sort_values("sales")
+        section_title("매출처 매출 TOP 10", "백만원")
+        top_accounts = account_summary.nlargest(10, "sales").sort_values("sales", ascending=False)
+        account_rank_order = top_accounts["account_name"].tolist()
         rank_fig = px.bar(
             top_accounts,
-            x="sales",
+            x="sales_million",
             y="account_name",
             color="channel",
             orientation="h",
             color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-            labels={"sales": "매출", "account_name": "", "channel": "채널"},
+            labels={"sales_million": "매출액", "account_name": "매출처명", "channel": "채널"},
         )
+        rank_fig.update_yaxes(
+            categoryorder="array",
+            categoryarray=account_rank_order,
+            autorange="reversed",
+        )
+        rank_fig.update_layout(legend_title_text="채널")
         st.plotly_chart(style_figure(rank_fig, 430), use_container_width=True)
 
     with right:
-        st.markdown('<div class="section-title">매출처별 매출 · 판매수량 포지션</div>', unsafe_allow_html=True)
+        section_title("매출처별 매출 · 판매수량 포지션", "백만원, EA")
         scatter_fig = px.scatter(
             account_summary,
-            x="sales",
+            x="sales_million",
             y="quantity",
             size="bubble_size",
             color="channel",
@@ -464,8 +631,8 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             hover_data={"bubble_size": False},
             color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
             labels={
-                "sales": "매출",
-                "quantity": "판매수량",
+                "sales_million": "매출액",
+                "quantity": "판매수량(EA)",
                 "bubble_size": "판매수량",
                 "channel": "채널",
             },
@@ -473,13 +640,14 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         )
         st.plotly_chart(style_figure(scatter_fig, 430), use_container_width=True)
 
-    st.markdown('<div class="section-title">채널별 판매수량 TOP 제품</div>', unsafe_allow_html=True)
+    section_title("채널별 판매수량 TOP 제품", "EA")
     st.markdown('<div class="section-sub">각 채널에서 실제로 어떤 제품이 많이 움직였는지 판매수량 기준으로 비교합니다.</div>', unsafe_allow_html=True)
     channel_product = frame.groupby(["channel", "product_name"], as_index=False)["quantity"].sum()
     channel_product = (
         channel_product.sort_values(["channel", "quantity"], ascending=[True, False])
         .groupby("channel", as_index=False, group_keys=False)
         .head(10)
+        .sort_values(["channel", "quantity"], ascending=[True, True])
     )
     facet_rows = max(1, int(np.ceil(channel_count / 2)))
     channel_product_fig = px.bar(
@@ -491,14 +659,18 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         facet_col_wrap=2,
         orientation="h",
         color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-        labels={"quantity": "판매수량", "product_name": "", "channel": "채널"},
+        labels={"quantity": "판매수량(EA)", "product_name": "제품명", "channel": "채널"},
     )
-    channel_product_fig.update_yaxes(matches=None, showticklabels=True)
+    channel_product_fig.update_yaxes(
+        matches=None,
+        showticklabels=True,
+        categoryorder="total ascending",
+    )
     channel_product_fig.update_xaxes(matches=None)
     channel_product_fig.for_each_annotation(lambda annotation: annotation.update(text=annotation.text.split("=")[-1]))
     st.plotly_chart(style_figure(channel_product_fig, 270 * facet_rows), use_container_width=True)
 
-    st.markdown('<div class="section-title">채널별 MC 대분류 매출 비중</div>', unsafe_allow_html=True)
+    section_title("채널별 MC 대분류 매출 비중", "%")
     st.markdown('<div class="section-sub">채널마다 어떤 제품군이 매출을 주도하는지 100% 구성비로 비교합니다.</div>', unsafe_allow_html=True)
     channel_category = frame.groupby(["channel", "category_large"], as_index=False)["sales"].sum()
     category_fig = px.bar(
@@ -506,7 +678,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         x="channel",
         y="sales",
         color="category_large",
-        color_discrete_sequence=px.colors.qualitative.Pastel,
+        color_discrete_sequence=BLUE_PALETTE,
         labels={"channel": "채널", "sales": "매출 비중(%)", "category_large": "MC 대분류"},
     )
     category_fig.update_layout(barmode="stack", barnorm="percent")
@@ -514,12 +686,6 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
 
 
 def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_date: pd.Timestamp) -> None:
-    st.markdown('<div class="brand">Product Sales Intelligence</div>', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="brand-sub">{start_date:%Y.%m.%d} — {end_date:%Y.%m.%d} · 제품과 카테고리의 매출 기여도를 분석합니다.</div>',
-        unsafe_allow_html=True,
-    )
-
     product_source = frame.copy()
     product_source["weighted_unit_amount"] = product_source["unit_price"] * product_source["quantity"]
     product_summary = product_source.groupby("product_name", as_index=False).agg(
@@ -527,6 +693,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
         quantity=("quantity", "sum"),
         weighted_unit_amount=("weighted_unit_amount", "sum"),
     )
+    product_summary["sales_million"] = (product_summary["sales"] / 1_000_000).round(1)
     product_summary["average_unit_price"] = np.where(
         product_summary["quantity"] == 0,
         0,
@@ -552,55 +719,56 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
 
     left, right = st.columns([1.05, 1])
     with left:
-        st.markdown('<div class="section-title">제품 매출 TOP 10</div>', unsafe_allow_html=True)
+        section_title("제품 매출 TOP 10", "백만원")
         top_products = product_summary.nlargest(10, "sales").sort_values("sales")
         product_fig = px.bar(
             top_products,
-            x="sales",
+            x="sales_million",
             y="product_name",
             orientation="h",
-            color="sales",
-            color_continuous_scale=[[0, "#DDD6FE"], [1, COLORS["primary"]]],
-            labels={"sales": "매출", "product_name": ""},
+            color="sales_million",
+            color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+            labels={"sales_million": "매출액", "product_name": "제품명"},
         )
         product_fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(product_fig, 420), use_container_width=True)
 
     with right:
-        st.markdown('<div class="section-title">카테고리 매출 구성</div>', unsafe_allow_html=True)
+        section_title("카테고리 매출 구성", "백만원, %")
         category_sales = frame.groupby(
             ["category_large", "category_middle", "category_small", "category_detail"],
             as_index=False,
         )["sales"].sum()
+        category_sales["sales_million"] = (category_sales["sales"] / 1_000_000).round(1)
         sunburst_fig = px.sunburst(
             category_sales,
             path=["category_large", "category_middle", "category_small", "category_detail"],
-            values="sales",
-            color="sales",
-            color_continuous_scale=[[0, "#FCE7F3"], [1, COLORS["secondary"]]],
-            labels={"sales": "매출"},
+            values="sales_million",
+            color="sales_million",
+            color_continuous_scale=[[0, "#D6E7F5"], [1, COLORS["secondary"]]],
+            labels={"sales_million": "매출(백만원)"},
         )
         sunburst_fig.update_traces(
             textinfo="label+percent parent",
-            hovertemplate="<b>%{label}</b><br>매출: ₩%{value:,.0f}<br>상위 분류 내 비중: %{percentParent:.1%}<extra></extra>",
+            hovertemplate="<b>%{label}</b><br>매출: %{value:,.1f}백만원<br>상위 분류 내 비중: %{percentParent:.1%}<extra></extra>",
         )
         sunburst_fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(sunburst_fig, 420), use_container_width=True)
 
-    st.markdown('<div class="section-title">제품별 매출 · 판매수량 포지션</div>', unsafe_allow_html=True)
+    section_title("제품별 매출 · 판매수량 포지션", "백만원, EA, 원")
     product_scatter = px.scatter(
         product_summary,
-        x="sales",
+        x="sales_million",
         y="quantity",
         size="bubble_size",
         color="average_unit_price",
         hover_name="product_name",
         color_continuous_scale=[
-            [0.0, "#2563EB"],
-            [0.5, "#7C3AED"],
-            [1.0, "#EC4899"],
+            [0.0, "#194F95"],
+            [0.5, "#3F78B8"],
+            [1.0, "#91B1D7"],
         ],
-        labels={"sales": "매출", "quantity": "판매수량", "bubble_size": "판매수량", "average_unit_price": "평균 물품단가"},
+        labels={"sales_million": "매출액", "quantity": "판매수량(EA)", "bubble_size": "판매수량(EA)", "average_unit_price": "평균 물품단가(원)"},
         size_max=55,
     )
     product_scatter.update_traces(marker=dict(opacity=.9, line=dict(color="#FFFFFF", width=1.5)))
@@ -612,7 +780,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
             "average_unit_price": "평균물품단가",
         }
     )[["제품명", "매출", "판매수량", "평균물품단가"]]
-    st.markdown('<div class="section-title">제품 상세 실적</div>', unsafe_allow_html=True)
+    section_title("제품 상세 실적", "EA, 원")
     st.dataframe(
         product_detail.sort_values("매출", ascending=False),
         use_container_width=True,
@@ -678,15 +846,12 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame) -> None:
     total_sales = frame["sales"].sum()
     total_quantity = frame["quantity"].sum()
     store_sales = frame.groupby("store", as_index=False)["sales"].sum()
+    store_sales["sales_million"] = (store_sales["sales"] / 1_000_000).round(1)
     product_sales = frame.groupby("product_name", as_index=False).agg(
         sales=("sales", "sum"), quantity=("quantity", "sum")
     )
+    product_sales["sales_million"] = (product_sales["sales"] / 1_000_000).round(1)
 
-    st.markdown('<div class="brand">밀도 Store Sales Overview</div>', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="brand-sub">{start_date:%Y.%m.%d} — {end_date:%Y.%m.%d} · 매장과 제품 판매 흐름을 한눈에 확인합니다.</div>',
-        unsafe_allow_html=True,
-    )
     cols = st.columns(4)
     cols[0].metric("실매출", won(total_sales))
     cols[1].metric("판매수량", f"{total_quantity:,.0f}개")
@@ -702,59 +867,221 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame) -> None:
     )
 
     daily = frame.groupby("date", as_index=False).agg(sales=("sales", "sum"), quantity=("quantity", "sum"))
+    daily["sales_million"] = (daily["sales"] / 1_000_000).round(1)
     left, right = st.columns([1.25, 1])
     with left:
-        st.markdown('<div class="section-title">일별 실매출 흐름</div>', unsafe_allow_html=True)
-        fig = px.bar(daily, x="date", y="sales", color_discrete_sequence=[COLORS["primary"]],
-                     labels={"date": "일자", "sales": "실매출"})
+        section_title("일별 실매출 흐름", "백만원")
+        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[COLORS["primary"]],
+                     labels={"date": "일자", "sales_million": "실매출(백만원)"})
         st.plotly_chart(style_figure(fig, 370), use_container_width=True)
     with right:
-        st.markdown('<div class="section-title">매장 매출 TOP 10</div>', unsafe_allow_html=True)
+        section_title("매장 매출 TOP 10", "백만원")
         top_stores = store_sales.nlargest(10, "sales").sort_values("sales")
-        fig = px.bar(top_stores, x="sales", y="store", orientation="h", color="sales",
-                     color_continuous_scale=[[0, "#DDD6FE"], [1, COLORS["primary"]]],
-                     labels={"sales": "실매출", "store": ""})
+        fig = px.bar(top_stores, x="sales_million", y="store", orientation="h", color="sales_million",
+                     color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+                     labels={"sales_million": "실매출", "store": "매장명"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 370), use_container_width=True)
 
     left, right = st.columns(2)
     with left:
-        st.markdown('<div class="section-title">제품 매출 TOP 10</div>', unsafe_allow_html=True)
+        section_title("제품 매출 TOP 10", "백만원, EA")
         top_products = product_sales.nlargest(10, "sales").sort_values("sales")
-        fig = px.bar(top_products, x="sales", y="product_name", orientation="h", color="quantity",
-                     color_continuous_scale=[[0, "#FCE7F3"], [1, COLORS["secondary"]]],
-                     labels={"sales": "실매출", "product_name": "", "quantity": "판매수량"})
+        fig = px.bar(top_products, x="sales_million", y="product_name", orientation="h", color="quantity",
+                     color_continuous_scale=[[0, "#D6E7F5"], [1, COLORS["secondary"]]],
+                     labels={"sales_million": "실매출", "product_name": "제품명", "quantity": "판매수량(EA)"})
         st.plotly_chart(style_figure(fig, 410), use_container_width=True)
     with right:
-        st.markdown('<div class="section-title">카테고리 매출 구성</div>', unsafe_allow_html=True)
+        section_title("카테고리 매출 구성", "백만원, %")
         category = frame.groupby(["category_large", "category_middle"], as_index=False)["sales"].sum()
-        fig = px.sunburst(category, path=["category_large", "category_middle"], values="sales", color="sales",
-                          color_continuous_scale=[[0, "#FEF3C7"], [1, COLORS["accent"]]], labels={"sales": "실매출"})
+        category["sales_million"] = (category["sales"] / 1_000_000).round(1)
+        fig = px.sunburst(category, path=["category_large", "category_middle"], values="sales_million", color="sales_million",
+                          color_continuous_scale=[[0, "#EAF2FA"], [1, COLORS["accent"]]], labels={"sales_million": "실매출(백만원)"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 410), use_container_width=True)
 
-    st.markdown('<div class="section-title">매장 × 주요 제품 매출 분포</div>', unsafe_allow_html=True)
+    section_title("매장 × 주요 제품 매출 분포", "백만원")
     top_store_names = store_sales.nlargest(10, "sales")["store"]
     top_product_names = product_sales.nlargest(10, "sales")["product_name"]
     heat = frame[frame["store"].isin(top_store_names) & frame["product_name"].isin(top_product_names)].pivot_table(
         index="store", columns="product_name", values="sales", aggfunc="sum", fill_value=0
-    )
-    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="Purples",
-                         labels={"x": "제품", "y": "매장", "color": "실매출"})
+    ).div(1_000_000).round(1)
+    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="Blues",
+                         labels={"x": "제품", "y": "매장", "color": "실매출(백만원)"})
     st.plotly_chart(style_figure(heat_fig, 450), use_container_width=True)
+
+
+def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
+    """제품 출시 이후 판매 흐름과 지속성을 살펴보는 밀도 제품 화면입니다."""
+    products = sorted(frame["product_name"].dropna().unique())
+    selected_product = st.selectbox("분석 제품", products, key="mealdo_lifecycle_product")
+    product_frame = frame.loc[frame["product_name"] == selected_product].copy()
+    # 원장 행의 존재가 아니라 실제 양수 판매수량이 발생한 날짜만 판매일로 봅니다.
+    sales_activity = product_frame.loc[product_frame["quantity"] > 0]
+    if sales_activity.empty:
+        sales_activity = product_frame.loc[product_frame["sales"] > 0]
+    if sales_activity.empty:
+        sales_activity = product_frame
+    first_sale_date = sales_activity["date"].min()
+    last_sale_date = sales_activity["date"].max()
+    elapsed_days = max(1, (last_sale_date - first_sale_date).days + 1)
+    active_days = sales_activity["date"].nunique()
+
+    cols = st.columns(5)
+    cols[0].metric("최초 판매일", first_sale_date.strftime("%Y.%m.%d"))
+    cols[1].metric("판매 발생일", f"{active_days:,}일", help="판매수량이 0보다 큰 날짜 수입니다.")
+    cols[2].metric("누적 판매수량", f"{product_frame['quantity'].sum():,.0f} EA")
+    cols[3].metric("판매 매장", f"{product_frame['store'].nunique():,}개")
+    cols[4].metric("폐기율", "연동 예정", help="폐기수량 또는 폐기금액 컬럼 추가 후 계산됩니다.")
+
+    st.markdown(
+        f'<div class="insight-box"><b>{selected_product}</b>은 조회 데이터 기준 '
+        f'최초 판매일부터 최종 판매일까지 <b>{elapsed_days:,}일</b>의 기간 중 '
+        f'실제로 판매수량이 발생한 날은 <b>{active_days:,}일</b>입니다. 실제 출시일 컬럼이 추가되면 '
+        'D+7·D+14·D+30 기준 제품 간 비교가 가능해집니다.</div>',
+        unsafe_allow_html=True,
+    )
+
+    daily = product_frame.groupby("date", as_index=False).agg(
+        sales=("sales", "sum"), quantity=("quantity", "sum")
+    ).set_index("date")
+    full_dates = pd.date_range(product_frame["date"].min(), product_frame["date"].max(), freq="D")
+    daily = daily.reindex(full_dates, fill_value=0).rename_axis("date").reset_index()
+    daily["sales_million"] = (daily["sales"] / 1_000_000).round(1)
+    daily["quantity_ma7"] = daily["quantity"].rolling(7, min_periods=1).mean().round(1)
+
+    section_title("제품 판매 Lifecycle", "EA, 백만원")
+    lifecycle_fig = go.Figure()
+    lifecycle_fig.add_bar(
+        x=daily["date"], y=daily["quantity"], name="판매수량",
+        marker_color=COLORS["primary"], hovertemplate="%{x|%Y-%m-%d}<br>판매수량: %{y:,.1f} EA<extra></extra>",
+    )
+    lifecycle_fig.add_scatter(
+        x=daily["date"], y=daily["quantity_ma7"], name="7일 이동평균",
+        mode="lines", line=dict(color=COLORS["accent"], width=3),
+        hovertemplate="%{x|%Y-%m-%d}<br>7일 평균: %{y:,.1f} EA<extra></extra>",
+    )
+    lifecycle_fig.update_xaxes(title_text="일자")
+    lifecycle_fig.update_yaxes(title_text="판매수량(EA)")
+    st.plotly_chart(style_figure(lifecycle_fig, 410), use_container_width=True)
+
+    left, right = st.columns(2)
+    with left:
+        section_title("매장별 누적 판매수량", "EA")
+        store_quantity = product_frame.groupby("store", as_index=False)["quantity"].sum().nlargest(15, "quantity").sort_values("quantity")
+        fig = px.bar(store_quantity, x="quantity", y="store", orientation="h",
+                     labels={"quantity": "판매수량(EA)", "store": "매장명"},
+                     color_discrete_sequence=[COLORS["primary"]])
+        st.plotly_chart(style_figure(fig, 400), use_container_width=True)
+    with right:
+        section_title("폐기율 · 재고 추이", "EA, %")
+        st.info("폐기수량, 입고수량 및 재고수량 데이터가 추가되면 판매수량과 폐기율 추이를 함께 표시합니다.")
+
+
+def render_mealdo_popularity_dashboard(frame: pd.DataFrame) -> None:
+    """현재 매출 데이터로 제품의 최근 속도와 판매 지속성을 탐색합니다."""
+    end_date = frame["date"].max().normalize()
+    recent_start = end_date - pd.Timedelta(days=6)
+    previous_start = recent_start - pd.Timedelta(days=7)
+    weekly = frame.assign(week=frame["date"].dt.to_period("W").astype(str))
+    summary = frame.groupby("product_name", as_index=False).agg(
+        total_quantity=("quantity", "sum"), active_days=("date", "nunique"), active_stores=("store", "nunique")
+    )
+    recent = frame.loc[frame["date"].between(recent_start, end_date)].groupby("product_name")["quantity"].sum()
+    previous = frame.loc[frame["date"].between(previous_start, recent_start - pd.Timedelta(days=1))].groupby("product_name")["quantity"].sum()
+    active_weeks = weekly.groupby("product_name")["week"].nunique()
+    summary["recent_velocity"] = summary["product_name"].map(recent).fillna(0) / 7
+    summary["previous_velocity"] = summary["product_name"].map(previous).fillna(0) / 7
+    summary["active_weeks"] = summary["product_name"].map(active_weeks).fillna(0)
+    summary["growth_rate"] = np.where(
+        summary["previous_velocity"] == 0,
+        np.where(summary["recent_velocity"] > 0, 100.0, 0.0),
+        (summary["recent_velocity"] / summary["previous_velocity"] - 1) * 100,
+    ).round(1)
+
+    total_stores = max(1, frame["store"].nunique())
+    summary["store_coverage"] = (summary["active_stores"] / total_stores * 100).round(1)
+    max_weeks = max(1, int(weekly["week"].nunique()))
+    summary["continuity"] = (summary["active_weeks"] / max_weeks * 100).round(1)
+
+    cols = st.columns(4)
+    cols[0].metric("분석 제품", f"{len(summary):,}개")
+    cols[1].metric("최근 판매 제품", f"{(summary['recent_velocity'] > 0).sum():,}개")
+    cols[2].metric("전 기간 판매 유지", f"{(summary['continuity'] >= 80).sum():,}개")
+    cols[3].metric("종합 지속성 점수", "설계 예정", help="폐기율·재고·품절 데이터를 포함해 가중치를 확정할 예정입니다.")
+
+    section_title("제품 인기 · 지속성 포지션", "EA/일, %")
+    fig = px.scatter(
+        summary, x="continuity", y="recent_velocity", size="active_stores", color="growth_rate",
+        hover_name="product_name", color_continuous_scale="RdBu",
+        labels={"continuity": "판매 지속성(%)", "recent_velocity": "최근 7일 일평균 판매수량(EA)",
+                "active_stores": "판매 매장 수", "growth_rate": "최근 성장률(%)"}, size_max=45,
+    )
+    st.plotly_chart(style_figure(fig, 450), use_container_width=True)
+    st.caption("우측 상단은 최근 판매속도와 지속성이 모두 높은 제품이며, 좌측 상단은 단기성 인기 가능성이 있는 제품입니다.")
+
+    detail = summary.rename(columns={
+        "product_name": "제품명", "recent_velocity": "최근 일평균 판매수량",
+        "growth_rate": "최근 성장률", "store_coverage": "매장 확산도", "continuity": "판매 지속성",
+    })[["제품명", "최근 일평균 판매수량", "최근 성장률", "매장 확산도", "판매 지속성"]]
+    section_title("제품 인기 · 지속성 지표", "EA/일, %")
+    st.dataframe(detail.sort_values("최근 일평균 판매수량", ascending=False), hide_index=True, use_container_width=True,
+                 column_config={
+                     "최근 일평균 판매수량": st.column_config.NumberColumn(format="%,.1f"),
+                     "최근 성장률": st.column_config.NumberColumn(format="%,.1f%%"),
+                     "매장 확산도": st.column_config.NumberColumn(format="%,.1f%%"),
+                     "판매 지속성": st.column_config.NumberColumn(format="%,.1f%%"),
+                 })
+
+
+def render_mealdo_store_product_dashboard(frame: pd.DataFrame) -> None:
+    """제품별 매장 운영 성과와 향후 폐기 분석 위치를 제공하는 화면입니다."""
+    products = sorted(frame["product_name"].dropna().unique())
+    selected_product = st.selectbox("분석 제품", products, key="mealdo_store_product")
+    product_frame = frame.loc[frame["product_name"] == selected_product]
+    store_summary = product_frame.groupby("store", as_index=False).agg(
+        sales=("sales", "sum"), quantity=("quantity", "sum"), active_days=("date", "nunique")
+    )
+    store_summary["sales_million"] = (store_summary["sales"] / 1_000_000).round(1)
+    store_summary["daily_quantity"] = np.where(
+        store_summary["active_days"] == 0, 0, store_summary["quantity"] / store_summary["active_days"]
+    ).round(1)
+
+    cols = st.columns(4)
+    cols[0].metric("취급 매장", f"{store_summary['store'].nunique():,}개")
+    cols[1].metric("누적 판매수량", f"{store_summary['quantity'].sum():,.0f} EA")
+    cols[2].metric("매장당 평균수량", f"{store_summary['quantity'].mean():,.1f} EA")
+    cols[3].metric("운영 권고", "연동 예정", help="판매량과 폐기율을 함께 사용해 확대·유지·축소 권고를 제공합니다.")
+
+    section_title("매장별 제품 판매 포지션", "백만원, EA/일")
+    fig = px.scatter(
+        store_summary, x="sales_million", y="daily_quantity", size="quantity", hover_name="store",
+        labels={"sales_million": "매출액(백만원)", "daily_quantity": "일평균 판매수량(EA)", "quantity": "누적 판매수량"},
+        color_discrete_sequence=[COLORS["primary"]], size_max=48,
+    )
+    st.plotly_chart(style_figure(fig, 430), use_container_width=True)
+
+    left, right = st.columns(2)
+    with left:
+        section_title("매장별 제품 판매 순위", "EA")
+        rank = store_summary.nlargest(15, "quantity").sort_values("quantity")
+        rank_fig = px.bar(rank, x="quantity", y="store", orientation="h",
+                          labels={"quantity": "누적 판매수량(EA)", "store": "매장명"},
+                          color_discrete_sequence=[COLORS["primary"]])
+        st.plotly_chart(style_figure(rank_fig, 410), use_container_width=True)
+    with right:
+        section_title("판매량 × 폐기율 운영 매트릭스", "EA, %")
+        st.info("폐기 데이터가 추가되면 매장을 물량 확대·발주 최적화·판매 개선·취급 검토의 4개 영역으로 분류합니다.")
 
 
 def render_paul_store_dashboard(frame: pd.DataFrame) -> None:
     start_date, end_date = frame["date"].min(), frame["date"].max()
     store_sales = frame.groupby("store", as_index=False)["sales"].sum()
+    store_sales["sales_million"] = (store_sales["sales"] / 1_000_000).round(1)
     daily = frame.groupby("date", as_index=False)["sales"].sum()
+    daily["sales_million"] = (daily["sales"] / 1_000_000).round(1)
     active_store_count = store_sales.loc[store_sales["sales"] != 0, "store"].nunique()
 
-    st.markdown('<div class="brand">Paul Bassett Store Sales Overview</div>', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="brand-sub">{start_date:%Y.%m.%d} — {end_date:%Y.%m.%d} · 폴바셋 매장별 일매출 성과를 분석합니다.</div>',
-        unsafe_allow_html=True,
-    )
     cols = st.columns(4)
     cols[0].metric("총 매출", won(frame["sales"].sum()))
     cols[1].metric("전체 매장", f"{frame['store'].nunique():,}개")
@@ -771,31 +1098,31 @@ def render_paul_store_dashboard(frame: pd.DataFrame) -> None:
 
     left, right = st.columns([1.2, 1])
     with left:
-        st.markdown('<div class="section-title">일별 매출 흐름</div>', unsafe_allow_html=True)
-        fig = px.bar(daily, x="date", y="sales", color_discrete_sequence=[COLORS["secondary"]],
-                     labels={"date": "일자", "sales": "매출"})
+        section_title("일별 매출 흐름", "백만원")
+        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[COLORS["secondary"]],
+                     labels={"date": "일자", "sales_million": "매출(백만원)"})
         st.plotly_chart(style_figure(fig, 390), use_container_width=True)
     with right:
-        st.markdown('<div class="section-title">매장 매출 TOP 15</div>', unsafe_allow_html=True)
+        section_title("매장 매출 TOP 15", "백만원")
         top_stores = store_sales.nlargest(15, "sales").sort_values("sales")
-        fig = px.bar(top_stores, x="sales", y="store", orientation="h", color="sales",
-                     color_continuous_scale=[[0, "#FBCFE8"], [1, COLORS["secondary"]]],
-                     labels={"sales": "매출", "store": ""})
+        fig = px.bar(top_stores, x="sales_million", y="store", orientation="h", color="sales_million",
+                     color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["secondary"]]],
+                     labels={"sales_million": "매출액", "store": "매장명"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 390), use_container_width=True)
 
-    st.markdown('<div class="section-title">상위 매장 일별 매출 히트맵</div>', unsafe_allow_html=True)
+    section_title("상위 매장 일별 매출 히트맵", "백만원")
     top_store_names = store_sales.nlargest(15, "sales")["store"]
     heat = frame[frame["store"].isin(top_store_names)].pivot_table(
         index="store", columns="date", values="sales", aggfunc="sum", fill_value=0
-    )
+    ).div(1_000_000).round(1)
     heat.columns = [date_value.strftime("%m/%d") for date_value in heat.columns]
-    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="RdPu",
-                         labels={"x": "일자", "y": "매장", "color": "매출"})
+    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="Blues",
+                         labels={"x": "일자", "y": "매장", "color": "매출(백만원)"})
     st.plotly_chart(style_figure(heat_fig, 480), use_container_width=True)
 
     detail = store_sales.sort_values("sales", ascending=False).rename(columns={"store": "매장명", "sales": "매출"})
-    st.markdown('<div class="section-title">매장 상세 실적</div>', unsafe_allow_html=True)
+    section_title("매장 상세 실적", "원")
     st.dataframe(detail, hide_index=True, use_container_width=True,
                  column_config={"매출": st.column_config.NumberColumn(format="₩ %,.0f")})
 
@@ -819,45 +1146,88 @@ if selected_brand == "밀도":
         st.stop()
 
     with st.sidebar:
-        st.markdown("---")
         st.markdown('<div class="brand">밀도</div>', unsafe_allow_html=True)
         st.markdown('<div class="brand-sub">Store Sales Intelligence</div>', unsafe_allow_html=True)
         st.markdown("---")
         st.markdown('<div class="nav-title">STORE ANALYTICS</div>', unsafe_allow_html=True)
+        store_nav_labels = {
+            "밀도 Sales Overview": "01  밀도 Sales Overview",
+            "밀도 제품 Lifecycle": "02  제품 Lifecycle 분석",
+            "밀도 인기·지속성 분석": "03  제품 인기·지속성 분석",
+            "밀도 매장×제품 분석": "04  매장 × 제품 운영 분석",
+            "폴바셋 Sales Overview": "05  폴바셋 Sales Overview",
+        }
         selected_store_page = st.radio(
-            "매장 브랜드",
-            ["밀도 Sales Overview", "폴바셋 Sales Overview"],
-            format_func=lambda value: {
-                "밀도 Sales Overview": "01  밀도 Sales Overview",
-                "폴바셋 Sales Overview": "02  폴바셋 Sales Overview",
-            }[value],
+            "분석 메뉴",
+            list(store_nav_labels),
+            format_func=store_nav_labels.get,
             label_visibility="collapsed",
         )
 
-    source_data = mealdo_data if selected_store_page == "밀도 Sales Overview" else paul_data
+    is_mealdo_page = selected_store_page.startswith("밀도")
+    source_data = mealdo_data if is_mealdo_page else paul_data
     if source_data.empty:
         st.warning(f"{selected_store_page}에 사용할 CSV 데이터가 없습니다.")
         st.stop()
 
     min_store_date = source_data["date"].min().date()
     max_store_date = source_data["date"].max().date()
+
+    store_header_title = {
+        "밀도 Sales Overview": "밀도 Store Sales Overview",
+        "밀도 제품 Lifecycle": "밀도 Product Lifecycle",
+        "밀도 인기·지속성 분석": "밀도 Product Sustainability",
+        "밀도 매장×제품 분석": "밀도 Store × Product Performance",
+        "폴바셋 Sales Overview": "Paul Bassett Store Sales Overview",
+    }[selected_store_page]
+    store_header_description = {
+        "밀도 Sales Overview": "매장과 제품 판매 흐름을 한눈에 확인합니다.",
+        "밀도 제품 Lifecycle": "제품 출시 이후 판매 추이와 생명주기를 분석합니다.",
+        "밀도 인기·지속성 분석": "단기 판매속도와 장기 판매 지속성을 비교합니다.",
+        "밀도 매장×제품 분석": "제품별 매장 성과와 운영 방향을 탐색합니다.",
+        "폴바셋 Sales Overview": "폴바셋 매장별 일매출 성과를 분석합니다.",
+    }[selected_store_page]
+    with st.container(key="sticky_dashboard_header"):
+        store_header_left, store_header_right = st.columns([1, 1.35], vertical_alignment="center")
+        with store_header_right:
+            store_date_columns = st.columns([.7, 1.3])
+            with store_date_columns[1]:
+                selected_store_dates = st.date_input(
+                    "조회 기간",
+                    value=(min_store_date, max_store_date),
+                    min_value=min_store_date,
+                    max_value=max_store_date,
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed",
+                    key="store_date_range",
+                )
+        with store_header_left:
+            store_header_start = selected_store_dates[0] if len(selected_store_dates) >= 1 else min_store_date
+            store_header_end = selected_store_dates[1] if len(selected_store_dates) >= 2 else store_header_start
+            st.markdown(f'<div class="brand">{store_header_title}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="brand-sub">{store_header_start:%Y.%m.%d} — {store_header_end:%Y.%m.%d} · '
+                f'{store_header_description}</div>',
+                unsafe_allow_html=True,
+            )
+
     with st.sidebar:
         st.markdown("---")
-        st.markdown("#### 조회 조건")
-        selected_store_dates = st.date_input(
-            "조회 기간",
-            value=(min_store_date, max_store_date),
-            min_value=min_store_date,
-            max_value=max_store_date,
-            key="store_date_range",
-        )
+        st.markdown("#### 상세 필터")
         store_options = sorted(source_data["store"].dropna().unique())
-        selected_stores = st.multiselect("매장명", store_options, default=store_options)
+        store_filter_key = (
+            "mealdo_filter_stores"
+            if is_mealdo_page
+            else "paul_filter_stores"
+        )
+        selected_stores = sidebar_filter_dropdown(
+            "매장명", store_options, store_filter_key
+        )
 
-        if selected_store_page == "밀도 Sales Overview":
+        if is_mealdo_page:
             category_options = sorted(source_data["category_large"].dropna().unique())
-            selected_store_categories = st.multiselect(
-                "대분류", category_options, default=category_options
+            selected_store_categories = sidebar_filter_dropdown(
+                "대분류", category_options, "mealdo_filter_categories"
             )
         else:
             selected_store_categories = []
@@ -874,7 +1244,7 @@ if selected_brand == "밀도":
         source_data["date"].between(store_start, store_end)
         & source_data["store"].isin(selected_stores)
     ].copy()
-    if selected_store_page == "밀도 Sales Overview":
+    if is_mealdo_page:
         store_filtered = store_filtered[
             store_filtered["category_large"].isin(selected_store_categories)
         ]
@@ -883,8 +1253,27 @@ if selected_brand == "밀도":
         st.warning("선택한 조건에 해당하는 매장 데이터가 없습니다.")
         st.stop()
 
+    mealdo_product_pages = {
+        "밀도 제품 Lifecycle",
+        "밀도 인기·지속성 분석",
+        "밀도 매장×제품 분석",
+    }
+    if selected_store_page in mealdo_product_pages:
+        store_filtered = store_filtered.loc[
+            store_filtered["category_large"].astype(str).str.strip().ne("기타")
+        ].copy()
+        if store_filtered.empty:
+            st.warning("대분류 '기타'를 제외하면 선택 조건에 해당하는 제품 데이터가 없습니다.")
+            st.stop()
+
     if selected_store_page == "밀도 Sales Overview":
         render_mealdo_store_dashboard(store_filtered)
+    elif selected_store_page == "밀도 제품 Lifecycle":
+        render_mealdo_lifecycle_dashboard(store_filtered)
+    elif selected_store_page == "밀도 인기·지속성 분석":
+        render_mealdo_popularity_dashboard(store_filtered)
+    elif selected_store_page == "밀도 매장×제품 분석":
+        render_mealdo_store_product_dashboard(store_filtered)
     else:
         render_paul_store_dashboard(store_filtered)
     st.stop()
@@ -927,20 +1316,53 @@ with st.sidebar:
         format_func=nav_labels.get,
         label_visibility="collapsed",
     )
-    st.markdown("---")
-    st.markdown("#### 조회 조건")
-    default_end_date = data_max_date
-    default_start_date = default_end_date.replace(day=1)
-    selected_dates = st.date_input(
-        "조회 기간",
-        value=(default_start_date, default_end_date),
-        min_value=data_min_date,
-        max_value=data_max_date,
-    )
-    if selected_page == "채널 Sales Overview":
-        frequency = st.segmented_control("집계 단위", ["일간", "주간", "월간"], default="일간")
-    else:
-        frequency = "주간"
+
+default_end_date = data_max_date
+default_start_date = default_end_date.replace(day=1)
+header_title = {
+    "채널 Sales Overview": "Channel Sales Overview",
+    "채널 상세 Sales 분석": "Channel Performance Lab",
+    "제품별 Sales Overview": "Product Sales Intelligence",
+}[selected_page]
+header_description = {
+    "채널 Sales Overview": "데르뜨 채널별 매출 및 판매 현황",
+    "채널 상세 Sales 분석": "채널과 매출처 성과를 교차 분석합니다.",
+    "제품별 Sales Overview": "제품과 카테고리의 매출 기여도를 분석합니다.",
+}[selected_page]
+
+with st.container(key="sticky_dashboard_header"):
+    header_left, header_right = st.columns([1, 1.35], vertical_alignment="center")
+    with header_right:
+        query_columns = st.columns([1.3, 1])
+        with query_columns[0]:
+            selected_dates = st.date_input(
+                "조회 기간",
+                value=(default_start_date, default_end_date),
+                min_value=data_min_date,
+                max_value=data_max_date,
+                format="YYYY/MM/DD",
+                label_visibility="collapsed",
+            )
+        if selected_page == "채널 Sales Overview":
+            with query_columns[1]:
+                frequency = st.segmented_control(
+                    "집계 단위",
+                    ["일간", "주간", "월간"],
+                    default="일간",
+                    label_visibility="collapsed",
+                )
+        else:
+            frequency = "주간"
+
+    with header_left:
+        selected_header_start = selected_dates[0] if len(selected_dates) >= 1 else default_start_date
+        selected_header_end = selected_dates[1] if len(selected_dates) >= 2 else selected_header_start
+        st.markdown(f'<div class="brand">{header_title}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="brand-sub">{selected_header_start:%Y.%m.%d} — {selected_header_end:%Y.%m.%d} · '
+            f'{header_description}</div>',
+            unsafe_allow_html=True,
+        )
 
 if len(selected_dates) != 2:
     st.info("조회 시작일과 종료일을 선택해 주세요.")
@@ -961,25 +1383,46 @@ with st.sidebar:
     min_date = data["date"].min().date()
     max_date = data["date"].max().date()
     channel_options = sorted(data["channel"].dropna().unique())
-    selected_channels = st.multiselect("채널", channel_options, default=channel_options)
-
-    # 채널 선택에 따라 매출처 목록이 자동으로 달라지는 종속 필터입니다.
-    account_options = sorted(
-        data.loc[data["channel"].isin(selected_channels), "account_name"].dropna().unique()
+    selected_channels = sidebar_filter_dropdown(
+        "Channel1_1", channel_options, "dertte_filter_channels"
     )
-    selected_accounts = st.multiselect("매출처명", account_options, default=account_options)
+
+    channel_detail_options = sorted(
+        data.loc[data["channel"].isin(selected_channels), "channel_detail"].dropna().unique()
+    )
+    selected_channel_details = sidebar_filter_dropdown(
+        "Channel1_2", channel_detail_options, "dertte_filter_channel_details"
+    )
+
+    # 1차·2차 채널 선택에 따라 영업 기준 매출처 목록이 자동으로 달라집니다.
+    account_options = sorted(
+        data.loc[
+            data["channel"].isin(selected_channels)
+            & data["channel_detail"].isin(selected_channel_details),
+            "account_name",
+        ].dropna().unique()
+    )
+    selected_accounts = sidebar_filter_dropdown(
+        "매출처명(영업기준)", account_options, "dertte_filter_accounts"
+    )
 
     category_base = data[
-        data["channel"].isin(selected_channels) & data["account_name"].isin(selected_accounts)
+        data["channel"].isin(selected_channels)
+        & data["channel_detail"].isin(selected_channel_details)
+        & data["account_name"].isin(selected_accounts)
     ]
     if selected_page == "채널 Sales Overview":
         large_options = sorted(category_base["category_large"].dropna().unique())
-        selected_large = st.multiselect("대분류", large_options, default=large_options)
+        selected_large = sidebar_filter_dropdown(
+            "대분류", large_options, "dertte_filter_large"
+        )
 
         middle_options = sorted(
             category_base.loc[category_base["category_large"].isin(selected_large), "category_middle"].dropna().unique()
         )
-        selected_middle = st.multiselect("중분류", middle_options, default=middle_options)
+        selected_middle = sidebar_filter_dropdown(
+            "중분류", middle_options, "dertte_filter_middle"
+        )
 
         small_options = sorted(
             category_base.loc[
@@ -988,7 +1431,9 @@ with st.sidebar:
                 "category_small",
             ].dropna().unique()
         )
-        selected_small = st.multiselect("소분류", small_options, default=small_options)
+        selected_small = sidebar_filter_dropdown(
+            "소분류", small_options, "dertte_filter_small"
+        )
 
         detail_options = sorted(
             category_base.loc[
@@ -998,7 +1443,21 @@ with st.sidebar:
                 "category_detail",
             ].dropna().unique()
         )
-        selected_detail = st.multiselect("세분류", detail_options, default=detail_options)
+        selected_detail = sidebar_filter_dropdown(
+            "세분류", detail_options, "dertte_filter_detail"
+        )
+    elif selected_page == "제품별 Sales Overview":
+        large_options = sorted(category_base["category_large"].dropna().unique())
+        selected_large = sidebar_filter_dropdown(
+            "MC 대분류", large_options, "dertte_filter_large"
+        )
+        selected_category_base = category_base[
+            category_base["category_large"].isin(selected_large)
+        ]
+        selected_middle = sorted(selected_category_base["category_middle"].dropna().unique())
+        selected_small = sorted(selected_category_base["category_small"].dropna().unique())
+        selected_detail = sorted(selected_category_base["category_detail"].dropna().unique())
+        frequency = "주간"
     else:
         selected_large = sorted(category_base["category_large"].dropna().unique())
         selected_middle = sorted(category_base["category_middle"].dropna().unique())
@@ -1008,7 +1467,11 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown('<span class="status-pill">● CSV 데이터</span>', unsafe_allow_html=True)
-    st.caption(f"파일 {len(csv_paths):,}개")
+    sales_csv_count = sum(path.name != "매출처_인코딩.csv" for path in csv_paths)
+    unmatched_account_count = data.loc[data["channel"].eq("(미매핑)"), "account_name"].nunique()
+    st.caption(f"매출 데이터 {sales_csv_count:,}개 · 매출처 매핑 1개")
+    if unmatched_account_count:
+        st.caption(f"⚠ 미매핑 매출처 {unmatched_account_count:,}개")
     st.caption(f"최종 데이터: {max_date:%Y.%m.%d}")
 
 
@@ -1016,6 +1479,7 @@ start_date, end_date = map(pd.Timestamp, selected_dates)
 filtered = data[
     data["date"].between(start_date, end_date)
     & data["channel"].isin(selected_channels)
+    & data["channel_detail"].isin(selected_channel_details)
     & data["account_name"].isin(selected_accounts)
     & data["category_large"].isin(selected_large)
     & data["category_middle"].isin(selected_middle)
@@ -1037,6 +1501,7 @@ previous_start, previous_end = comparison_period(start_date, end_date, frequency
 previous = data[
     data["date"].between(previous_start, previous_end)
     & data["channel"].isin(selected_channels)
+    & data["channel_detail"].isin(selected_channel_details)
     & data["account_name"].isin(selected_accounts)
     & data["category_large"].isin(selected_large)
     & data["category_middle"].isin(selected_middle)
@@ -1052,12 +1517,6 @@ if selected_page == "제품별 Sales Overview":
     render_product_overview(filtered, start_date, end_date)
     st.stop()
 
-st.markdown('<div class="brand">Channel Sales Overview</div>', unsafe_allow_html=True)
-st.markdown(
-    f'<div class="brand-sub">{start_date:%Y.%m.%d} — {end_date:%Y.%m.%d} · 데르뜨 채널별 매출 및 판매 현황</div>',
-    unsafe_allow_html=True,
-)
-
 sales = filtered["sales"].sum()
 quantity = filtered["quantity"].sum()
 prev_sales = previous["sales"].sum()
@@ -1066,18 +1525,25 @@ prev_quantity = previous["quantity"].sum()
 kpi_cols = st.columns(4)
 kpi_cols[0].metric("총 매출", won(sales), f"{percent_change(sales, prev_sales):+.1f}% · {comparison_label}")
 kpi_cols[1].metric("판매 수량", f"{quantity:,.0f}개", f"{percent_change(quantity, prev_quantity):+.1f}% · {comparison_label}")
-kpi_cols[2].metric("활성 채널", f"{filtered['channel'].nunique():,}개")
+kpi_cols[2].metric(
+    "활성 채널 1 / 2",
+    f"{filtered['channel'].nunique():,} / {filtered['channel_detail'].nunique():,}개",
+)
 kpi_cols[3].metric("판매 제품", f"{filtered['product_name'].nunique():,}개")
 st.caption(
     f"{comparison_label} 기준 · 현재 {start_date:%Y.%m.%d}-{end_date:%Y.%m.%d} / "
     f"비교 {previous_start:%Y.%m.%d}-{previous_end:%Y.%m.%d}"
 )
 
-st.markdown('<div class="section-title">기간별 판매 추이</div>', unsafe_allow_html=True)
+# 상세 실적은 아래에서 계산하지만 이 컨테이너 위치(KPI 바로 아래)에 렌더링합니다.
+account_detail_placeholder = st.container()
+
+section_title("기간별 판매 추이", "백만원, EA")
 trend_metric_label = st.segmented_control("추이 기준", ["매출액", "판매수량"], default="매출액")
 trend = aggregate_period(filtered, frequency or "일간")
-trend_column = "sales" if trend_metric_label == "매출액" else "quantity"
-trend_labels = {"date": "일자", "sales": "매출액", "quantity": "판매수량"}
+trend["sales_million"] = (trend["sales"] / 1_000_000).round(1)
+trend_column = "sales_million" if trend_metric_label == "매출액" else "quantity"
+trend_labels = {"date": "일자", "sales_million": "매출액(백만원)", "quantity": "판매수량"}
 trend_fig = px.bar(
     trend,
     x="date",
@@ -1087,34 +1553,62 @@ trend_fig = px.bar(
 )
 trend_fig.update_traces(marker_line_width=0, opacity=.9)
 trend_fig.update_layout(hovermode="x unified")
+tick_step = max(1, int(np.ceil(len(trend) / 12)))
+trend_tick_values = trend["date"].iloc[::tick_step].tolist()
+if trend_tick_values and trend_tick_values[-1] != trend["date"].iloc[-1]:
+    trend_tick_values.append(trend["date"].iloc[-1])
+trend_fig.update_xaxes(
+    tickmode="array",
+    tickvals=trend_tick_values,
+    ticktext=[pd.Timestamp(value).strftime("%Y-%m-%d") for value in trend_tick_values],
+    tickangle=0,
+)
 st.plotly_chart(style_figure(trend_fig, 390), use_container_width=True)
 
 channel_summary = filtered.groupby("channel", as_index=False).agg(
     sales=("sales", "sum"),
     quantity=("quantity", "sum"),
 )
+channel_summary["sales_million"] = (channel_summary["sales"] / 1_000_000).round(1)
 left, right = st.columns(2)
 with left:
-    st.markdown('<div class="section-title">채널별 매출 집계</div>', unsafe_allow_html=True)
+    section_title("채널별 매출 집계", "백만원")
     channel_sales_fig = px.bar(
-        channel_summary.sort_values("sales"), x="sales", y="channel", orientation="h", color="channel",
-        color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-        labels={"sales": "매출액", "channel": ""},
+        channel_summary.sort_values("sales"),
+        x="sales_million",
+        y="channel",
+        orientation="h",
+        color="channel",
+        color_discrete_sequence=[
+            COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]
+        ],
+        labels={"sales_million": "매출액", "channel": "채널"},
     )
-    channel_sales_fig.update_layout(showlegend=False)
-    st.plotly_chart(style_figure(channel_sales_fig, 360), use_container_width=True)
+    channel_sales_fig.update_traces(
+        texttemplate="%{x:,.1f}", textposition="outside", cliponaxis=False
+    )
+    channel_sales_fig = style_figure(channel_sales_fig, 360)
+    channel_sales_fig.update_layout(showlegend=False, margin=dict(l=18, r=90, t=58, b=16))
+    channel_sales_fig.update_yaxes(categoryorder="total ascending")
+    st.plotly_chart(channel_sales_fig, use_container_width=True)
 with right:
-    st.markdown('<div class="section-title">채널별 판매수량 집계</div>', unsafe_allow_html=True)
+    section_title("채널별 판매수량 집계", "EA")
     channel_quantity_fig = px.bar(
         channel_summary.sort_values("quantity"), x="quantity", y="channel", orientation="h", color="channel",
         color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-        labels={"quantity": "판매수량", "channel": ""},
+        labels={"quantity": "판매수량", "channel": "채널"},
     )
-    channel_quantity_fig.update_layout(showlegend=False)
-    st.plotly_chart(style_figure(channel_quantity_fig, 360), use_container_width=True)
+    channel_quantity_fig.update_traces(
+        texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False
+    )
+    channel_quantity_fig = style_figure(channel_quantity_fig, 360)
+    channel_quantity_fig.update_layout(showlegend=False, margin=dict(l=18, r=90, t=58, b=16))
+    channel_quantity_fig.update_yaxes(categoryorder="total ascending")
+    st.plotly_chart(channel_quantity_fig, use_container_width=True)
 
-st.markdown('<div class="section-title">채널별 매출액 TOP 10 제품</div>', unsafe_allow_html=True)
+section_title("채널별 매출액 TOP 10 제품", "백만원")
 channel_product = filtered.groupby(["channel", "product_name"], as_index=False)["sales"].sum()
+channel_product["sales_million"] = (channel_product["sales"] / 1_000_000).round(1)
 channel_product = (
     channel_product.sort_values(["channel", "sales"], ascending=[True, False])
     .groupby("channel", group_keys=False)
@@ -1130,43 +1624,111 @@ for channel_tab, channel_name in zip(channel_tabs, channel_names):
         )
         channel_product_fig = px.bar(
             channel_top_products,
-            x="sales",
+            x="sales_million",
             y="product_name",
             orientation="h",
-            color="sales",
-            color_continuous_scale=[[0, "#DDD6FE"], [1, COLORS["primary"]]],
-            labels={"sales": "매출액", "product_name": ""},
+            color="sales_million",
+            color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+            labels={"sales_million": "매출액", "product_name": "제품명"},
         )
         channel_product_fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(channel_product_fig, 430), use_container_width=True)
 
-st.markdown('<div class="section-title">카테고리별 판매 제품 TOP 10</div>', unsafe_allow_html=True)
+section_title("카테고리별 판매 제품 TOP 10", "EA, 백만원")
 category_levels = {
     "대분류": "category_large",
     "중분류": "category_middle",
     "소분류": "category_small",
     "세분류": "category_detail",
 }
-category_level_label = st.segmented_control("카테고리 단계", list(category_levels), default="대분류")
-category_column = category_levels[category_level_label]
-category_values = sorted(filtered[category_column].dropna().unique())
-selected_category_value = st.selectbox(f"MC {category_level_label}", category_values)
+category_level_label = (
+    st.segmented_control("카테고리 단계", list(category_levels), default="대분류")
+    or "대분류"
+)
+
+def category_drilldown_value(label: str, options: list, key: str, show_widget: bool) -> object:
+    """분류 단계별 선택을 기억하고 상위 선택에 맞지 않는 값은 첫 항목으로 초기화합니다."""
+    if not options:
+        return None
+    value_key = f"{key}_value"
+    widget_key = f"{key}_widget"
+    if st.session_state.get(value_key) not in options:
+        st.session_state[value_key] = options[0]
+    if show_widget:
+        # 화면에서 사라지는 위젯 키와 계속 보존할 선택값 키를 분리합니다.
+        if widget_key in st.session_state and st.session_state[widget_key] not in options:
+            del st.session_state[widget_key]
+        selected_value = st.selectbox(
+            f"MC {label}",
+            options,
+            index=options.index(st.session_state[value_key]),
+            key=widget_key,
+        )
+        st.session_state[value_key] = selected_value
+        return selected_value
+    return st.session_state[value_key]
+
+large_values = sorted(filtered["category_large"].dropna().unique())
+selected_drill_large = category_drilldown_value(
+    "대분류", large_values, "category_drill_large", category_level_label == "대분류"
+)
+category_scope = filtered.loc[filtered["category_large"] == selected_drill_large]
+
+selected_drill_middle = None
+selected_drill_small = None
+selected_drill_detail = None
+if category_level_label in ("중분류", "소분류", "세분류"):
+    middle_values = sorted(category_scope["category_middle"].dropna().unique())
+    selected_drill_middle = category_drilldown_value(
+        "중분류", middle_values, "category_drill_middle", category_level_label == "중분류"
+    )
+    category_scope = category_scope.loc[
+        category_scope["category_middle"] == selected_drill_middle
+    ]
+
+if category_level_label in ("소분류", "세분류"):
+    small_values = sorted(category_scope["category_small"].dropna().unique())
+    selected_drill_small = category_drilldown_value(
+        "소분류", small_values, "category_drill_small", category_level_label == "소분류"
+    )
+    category_scope = category_scope.loc[
+        category_scope["category_small"] == selected_drill_small
+    ]
+
+if category_level_label == "세분류":
+    detail_values = sorted(category_scope["category_detail"].dropna().unique())
+    selected_drill_detail = category_drilldown_value(
+        "세분류", detail_values, "category_drill_detail", True
+    )
+    category_scope = category_scope.loc[
+        category_scope["category_detail"] == selected_drill_detail
+    ]
+
+breadcrumb_values = [
+    value
+    for value in (
+        selected_drill_large,
+        selected_drill_middle,
+        selected_drill_small,
+        selected_drill_detail,
+    )
+    if value is not None
+]
+st.caption("선택 분류: " + " 〉 ".join(map(str, breadcrumb_values)))
 category_products = (
-    filtered.loc[filtered[category_column] == selected_category_value]
+    category_scope
     .groupby("product_name", as_index=False)
     .agg(sales=("sales", "sum"), quantity=("quantity", "sum"))
     .nlargest(10, "quantity")
     .sort_values("quantity")
 )
+category_products["sales_million"] = (category_products["sales"] / 1_000_000).round(1)
 category_product_fig = px.bar(
-    category_products, x="quantity", y="product_name", orientation="h", color="sales",
-    color_continuous_scale=[[0, "#DDD6FE"], [1, COLORS["primary"]]],
-    labels={"quantity": "판매수량", "product_name": "", "sales": "매출액"},
+    category_products, x="quantity", y="product_name", orientation="h", color="sales_million",
+    color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+    labels={"quantity": "판매수량(EA)", "product_name": "제품명", "sales_million": "매출액(백만원)"},
 )
 st.plotly_chart(style_figure(category_product_fig, 420), use_container_width=True)
-
-st.markdown('<div class="section-title">매출처 상세 실적</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-sub">조회 종료일 기준 채널 합계와 매출처별 매출을 피벗 형태로 비교합니다. (단위: 백만원)</div>', unsafe_allow_html=True)
 
 reference_date = end_date.normalize()
 current_month_start = reference_date.replace(day=1)
@@ -1180,6 +1742,7 @@ previous_year_start = previous_year_end.replace(day=1)
 # 조회 기간과 별개로 비교 기간 전체가 필요하므로 날짜를 제외한 현재 필터만 적용합니다.
 detail_history = data[
     data["channel"].isin(selected_channels)
+    & data["channel_detail"].isin(selected_channel_details)
     & data["account_name"].isin(selected_accounts)
     & data["category_large"].isin(selected_large)
     & data["category_middle"].isin(selected_middle)
@@ -1197,7 +1760,7 @@ account_metrics = None
 for metric_name, metric_mask in metric_specs.items():
     metric_values = (
         detail_history.loc[metric_mask]
-        .groupby(["channel", "account_name"])["sales"]
+        .groupby(["channel", "channel_detail", "account_name"])["sales"]
         .sum()
         .rename(metric_name)
     )
@@ -1209,81 +1772,111 @@ detail_rows: list[dict] = []
 
 total_values = account_metrics[value_columns].sum()
 detail_rows.append({
-    "구분": "Total sum",
+    "Channel1_1": "Total sum",
+    "Channel1_2": "",
     "매출처": "",
     **{column: total_values[column] / 1_000_000 for column in value_columns},
-    "monthly_plan": "-",
 })
 
-channel_order = (
+channel_level_1_order = (
     account_metrics.groupby("channel")["current_month_sales"]
     .sum()
     .sort_values(ascending=False)
     .index
 )
-for channel_name in channel_order:
-    channel_accounts = account_metrics.loc[account_metrics["channel"] == channel_name].copy()
-    channel_values = channel_accounts[value_columns].sum()
+for channel_level_1 in channel_level_1_order:
+    level_1_accounts = account_metrics.loc[
+        account_metrics["channel"] == channel_level_1
+    ].copy()
+    level_1_values = level_1_accounts[value_columns].sum()
     detail_rows.append({
-        "구분": channel_name,
-        "매출처": "SUM",
-        **{column: channel_values[column] / 1_000_000 for column in value_columns},
-        "monthly_plan": "-",
+        "Channel1_1": channel_level_1,
+        "Channel1_2": "SUM",
+        "매출처": "",
+        **{column: level_1_values[column] / 1_000_000 for column in value_columns},
     })
 
-    ranked_accounts = channel_accounts.sort_values("current_month_sales", ascending=False)
-    top_accounts = ranked_accounts.head(10)
-    for _, account_row in top_accounts.iterrows():
+    channel_level_2_order = (
+        level_1_accounts.groupby("channel_detail")["current_month_sales"]
+        .sum()
+        .sort_values(ascending=False)
+        .index
+    )
+    for channel_level_2 in channel_level_2_order:
+        level_2_accounts = level_1_accounts.loc[
+            level_1_accounts["channel_detail"] == channel_level_2
+        ].copy()
+        level_2_values = level_2_accounts[value_columns].sum()
         detail_rows.append({
-            "구분": "",
-            "매출처": account_row["account_name"],
-            **{column: account_row[column] / 1_000_000 for column in value_columns},
-            "monthly_plan": "-",
+            "Channel1_1": "",
+            "Channel1_2": channel_level_2,
+            "매출처": "SUM",
+            **{column: level_2_values[column] / 1_000_000 for column in value_columns},
         })
 
-    remaining_accounts = ranked_accounts.iloc[10:]
-    if not remaining_accounts.empty:
-        remaining_values = remaining_accounts[value_columns].sum()
-        detail_rows.append({
-            "구분": "",
-            "매출처": "그외 기타",
-            **{column: remaining_values[column] / 1_000_000 for column in value_columns},
-            "monthly_plan": "-",
-        })
+        ranked_accounts = level_2_accounts.sort_values("current_month_sales", ascending=False)
+        for _, account_row in ranked_accounts.iterrows():
+            detail_rows.append({
+                "Channel1_1": "",
+                "Channel1_2": "",
+                "매출처": account_row["account_name"],
+                **{column: account_row[column] / 1_000_000 for column in value_columns},
+            })
 
 daily_label = f"일매출({reference_date:%y/%m/%d})"
 current_month_label = f"당월누적({reference_date.month}월)"
-plan_label = f"당월계획({reference_date.month}월)"
 previous_month_label = f"전월누적({previous_month_end.month}월)"
 previous_year_label = f"전년동월누적({previous_year_end:%y년} {previous_year_end.month}월)"
+account_display_label = "매출처"
 detail = pd.DataFrame(detail_rows).rename(columns={
+    "매출처": account_display_label,
     "daily_sales": daily_label,
     "current_month_sales": current_month_label,
-    "monthly_plan": plan_label,
     "previous_month_sales": previous_month_label,
     "previous_year_sales": previous_year_label,
 })
-detail = detail[["구분", "매출처", daily_label, current_month_label, plan_label, previous_month_label, previous_year_label]]
+detail = detail[["Channel1_1", "Channel1_2", account_display_label, daily_label, current_month_label, previous_month_label, previous_year_label]]
 
 def style_pivot_row(row: pd.Series) -> list[str]:
-    is_summary = row["구분"] == "Total sum" or row["매출처"] == "SUM"
-    style = "font-weight: 700; background-color: #F5F3FF" if is_summary else ""
+    is_summary = (
+        row["Channel1_1"] == "Total sum"
+        or row["Channel1_2"] == "SUM"
+        or row[account_display_label] == "SUM"
+    )
+    style = "font-weight: 700; background-color: #EAF2FA" if is_summary else ""
     return [style] * len(row)
 
-styled_detail = detail.style.apply(style_pivot_row, axis=1)
+def highlight_negative_daily(value: object) -> str:
+    """음수 일매출을 붉은 계열로 강조합니다."""
+    if isinstance(value, (int, float, np.integer, np.floating)) and value < 0:
+        return "color: #B91C1C; background-color: #FEE2E2; font-weight: 700"
+    return ""
 
-st.dataframe(
-    styled_detail,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        daily_label: st.column_config.NumberColumn(format="%,.1f"),
-        current_month_label: st.column_config.NumberColumn(format="%,.1f"),
-        previous_month_label: st.column_config.NumberColumn(format="%,.1f"),
-        previous_year_label: st.column_config.NumberColumn(format="%,.1f"),
-    },
+styled_detail = (
+    detail.style
+    .apply(style_pivot_row, axis=1)
+    .map(highlight_negative_daily, subset=[daily_label])
 )
 
 csv = detail.to_csv(index=False).encode("utf-8-sig")
-st.download_button("매출처 실적 CSV 다운로드", csv, f"dertte_account_sales_{date.today():%Y%m%d}.csv", "text/csv")
+with account_detail_placeholder:
+    section_title("매출처 상세 실적", "백만원")
+    st.markdown('<div class="section-sub">조회 종료일 기준 Channel1_1 → Channel1_2 → 매출처 순서로 매출을 비교합니다. (단위: 백만원)</div>', unsafe_allow_html=True)
+    st.dataframe(
+        styled_detail,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            daily_label: st.column_config.NumberColumn(format="%,.1f"),
+            current_month_label: st.column_config.NumberColumn(format="%,.1f"),
+            previous_month_label: st.column_config.NumberColumn(format="%,.1f"),
+            previous_year_label: st.column_config.NumberColumn(format="%,.1f"),
+        },
+    )
+    st.download_button(
+        "매출처 실적 CSV 다운로드",
+        csv,
+        f"dertte_account_sales_{date.today():%Y%m%d}.csv",
+        "text/csv",
+    )
 st.caption("© 데르뜨 · 매출액과 판매수량은 선택한 기간 및 필터 기준입니다.")

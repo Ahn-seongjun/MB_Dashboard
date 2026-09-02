@@ -1,4 +1,5 @@
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
 queries/
 .venv/
 __pycache__/
