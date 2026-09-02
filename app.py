@@ -72,6 +72,9 @@ st.markdown(
         }
         [data-testid="stMetricLabel"] { color: #617B98; }
         [data-testid="stMetricValue"] { color: #143D75; }
+        .st-key-mealdo_first_sale_metric [data-testid="stMetricValue"] {
+            font-size: 1.35rem; white-space: nowrap;
+        }
         div[data-testid="stPlotlyChart"] {
             background: transparent; border: 0; border-radius: 0;
             padding: 0; box-shadow: none;
@@ -176,6 +179,12 @@ def weighted_unit_price(frame: pd.DataFrame) -> float:
     if total_quantity == 0:
         return 0.0
     return float((frame["unit_price"] * frame["quantity"]).sum() / total_quantity)
+
+
+def disposal_rate(sales_quantity: float, waste_quantity: float) -> float:
+    """판매수량과 폐기수량 합계 중 폐기수량이 차지하는 비율입니다."""
+    denominator = max(float(sales_quantity), 0.0) + max(float(waste_quantity), 0.0)
+    return 0.0 if denominator == 0 else max(float(waste_quantity), 0.0) / denominator * 100
 
 
 def clean_product_name(product_name: object, product_spec: object) -> str:
@@ -547,6 +556,22 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
         labels={"date": "일자", "sales_million": "매출(백만원)", "channel": "채널"},
     )
+    daily_tick_step = max(1, int(np.ceil(len(full_dates) / 12)))
+    daily_tick_values = full_dates[::daily_tick_step].tolist()
+    if daily_tick_values and daily_tick_values[-1] != full_dates[-1]:
+        daily_tick_values.append(full_dates[-1])
+    trend_fig.update_xaxes(
+        tickmode="array",
+        tickvals=daily_tick_values,
+        ticktext=[pd.Timestamp(value).strftime("%Y-%m-%d") for value in daily_tick_values],
+        tickangle=0,
+    )
+    trend_fig.update_traces(
+        hovertemplate=(
+            "일자: %{x|%Y-%m-%d}<br>"
+            "매출: %{y:,.1f}백만원<extra>%{fullData.name}</extra>"
+        )
+    )
     section_title("채널별 일간 매출 흐름", "백만원")
     st.plotly_chart(style_figure(trend_fig, 380), use_container_width=True)
     with st.expander("일간 채널 집계 데이터 보기 (단위: 원)"):
@@ -795,11 +820,12 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
 @st.cache_data(ttl=600)
 def load_store_sales_data(
     data_version: tuple[tuple[str, int, int], ...],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """밀도·폴바셋 CSV를 각 데이터 구조에 맞춰 정규화합니다."""
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """밀도 매출·폐기 및 폴바셋 CSV를 각 데이터 구조에 맞춰 정규화합니다."""
     del data_version
     data_dir = Path(__file__).resolve().parent / "data" / "mealdo"
     mealdo_frames: list[pd.DataFrame] = []
+    mealdo_waste_frames: list[pd.DataFrame] = []
     paul_frames: list[pd.DataFrame] = []
 
     for csv_path in sorted(data_dir.glob("*.csv")):
@@ -810,10 +836,13 @@ def load_store_sales_data(
 
         if {"기준일", "매장명", "품목명", "실매출"}.issubset(frame.columns):
             mealdo_frames.append(frame)
+        elif {"기준일", "매장명", "품목코드", "폐기수량", "폐기금액"}.issubset(frame.columns):
+            mealdo_waste_frames.append(frame)
         elif {"기준일", "매장명", "매출액_원"}.issubset(frame.columns):
             paul_frames.append(frame)
 
     mealdo = pd.concat(mealdo_frames, ignore_index=True) if mealdo_frames else pd.DataFrame()
+    mealdo_waste = pd.concat(mealdo_waste_frames, ignore_index=True) if mealdo_waste_frames else pd.DataFrame()
     paul = pd.concat(paul_frames, ignore_index=True) if paul_frames else pd.DataFrame()
 
     if not mealdo.empty:
@@ -826,7 +855,22 @@ def load_store_sales_data(
         mealdo["date"] = pd.to_datetime(mealdo["date"], errors="coerce")
         for column in ("quantity", "gross_sales", "sales"):
             mealdo[column] = pd.to_numeric(mealdo[column], errors="coerce").fillna(0)
+        mealdo["product_code"] = mealdo["product_code"].fillna("").astype(str).str.strip()
         mealdo = mealdo.dropna(subset=["date"])
+
+    if not mealdo_waste.empty:
+        mealdo_waste = mealdo_waste.rename(columns={
+            "기준일": "date", "브랜드": "brand", "매장명": "store",
+            "폐기유형": "waste_type", "폐기사유": "waste_reason",
+            "중분류명": "category_middle", "품목코드": "product_code",
+            "품목명": "product_name", "폐기수량": "waste_quantity",
+            "단가": "unit_price", "폐기금액": "waste_amount",
+        })
+        mealdo_waste["date"] = pd.to_datetime(mealdo_waste["date"], errors="coerce")
+        for column in ("waste_quantity", "unit_price", "waste_amount"):
+            mealdo_waste[column] = pd.to_numeric(mealdo_waste[column], errors="coerce").fillna(0)
+        mealdo_waste["product_code"] = mealdo_waste["product_code"].fillna("").astype(str).str.strip()
+        mealdo_waste = mealdo_waste.dropna(subset=["date"])
 
     if not paul.empty:
         paul = paul.rename(columns={
@@ -837,10 +881,10 @@ def load_store_sales_data(
         paul["sales"] = pd.to_numeric(paul["sales"], errors="coerce").fillna(0)
         paul = paul.dropna(subset=["date"])
 
-    return mealdo, paul
+    return mealdo, paul, mealdo_waste
 
 
-def render_mealdo_store_dashboard(frame: pd.DataFrame) -> None:
+def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> None:
     start_date, end_date = frame["date"].min(), frame["date"].max()
     total_sales = frame["sales"].sum()
     total_quantity = frame["quantity"].sum()
@@ -856,6 +900,15 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame) -> None:
     cols[1].metric("판매수량", f"{total_quantity:,.0f}개")
     cols[2].metric("운영 매장", f"{frame['store'].nunique():,}개")
     cols[3].metric("판매 제품", f"{frame['product_name'].nunique():,}개")
+
+    total_waste_quantity = waste["waste_quantity"].sum() if not waste.empty else 0
+    total_waste_amount = waste["waste_amount"].sum() if not waste.empty else 0
+    waste_cols = st.columns(4)
+    waste_cols[0].metric("폐기수량", f"{total_waste_quantity:,.0f} EA")
+    waste_cols[1].metric("폐기금액", won(total_waste_amount))
+    waste_cols[2].metric("폐기율", f"{disposal_rate(total_quantity, total_waste_quantity):,.1f}%",
+                         help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
+    waste_cols[3].metric("폐기 제품", f"{waste['product_code'].nunique() if not waste.empty else 0:,}개")
 
     top_store = store_sales.nlargest(1, "sales").iloc[0]
     top_product = product_sales.nlargest(1, "sales").iloc[0]
@@ -910,11 +963,13 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame) -> None:
     st.plotly_chart(style_figure(heat_fig, 450), use_container_width=True)
 
 
-def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
+def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> None:
     """제품 출시 이후 판매 흐름과 지속성을 살펴보는 밀도 제품 화면입니다."""
     products = sorted(frame["product_name"].dropna().unique())
     selected_product = st.selectbox("분석 제품", products, key="mealdo_lifecycle_product")
     product_frame = frame.loc[frame["product_name"] == selected_product].copy()
+    product_codes = set(product_frame["product_code"])
+    product_waste = waste.loc[waste["product_code"].isin(product_codes)].copy() if not waste.empty else waste.copy()
     # 원장 행의 존재가 아니라 실제 양수 판매수량이 발생한 날짜만 판매일로 봅니다.
     sales_activity = product_frame.loc[product_frame["quantity"] > 0]
     if sales_activity.empty:
@@ -925,13 +980,20 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
     last_sale_date = sales_activity["date"].max()
     elapsed_days = max(1, (last_sale_date - first_sale_date).days + 1)
     active_days = sales_activity["date"].nunique()
+    product_waste_quantity = product_waste["waste_quantity"].sum() if not product_waste.empty else 0
+    product_waste_amount = product_waste["waste_amount"].sum() if not product_waste.empty else 0
+    product_disposal_rate = disposal_rate(product_frame["quantity"].sum(), product_waste_quantity)
 
     cols = st.columns(5)
-    cols[0].metric("최초 판매일", first_sale_date.strftime("%Y.%m.%d"))
+    with cols[0]:
+        with st.container(key="mealdo_first_sale_metric"):
+            st.metric("최초 판매일", first_sale_date.strftime("%Y.%m.%d"),
+                      help=f"조회 데이터 기준 최초 판매일: {first_sale_date:%Y-%m-%d}")
     cols[1].metric("판매 발생일", f"{active_days:,}일", help="판매수량이 0보다 큰 날짜 수입니다.")
     cols[2].metric("누적 판매수량", f"{product_frame['quantity'].sum():,.0f} EA")
     cols[3].metric("판매 매장", f"{product_frame['store'].nunique():,}개")
-    cols[4].metric("폐기율", "연동 예정", help="폐기수량 또는 폐기금액 컬럼 추가 후 계산됩니다.")
+    cols[4].metric("폐기율", f"{product_disposal_rate:,.1f}%",
+                   help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
 
     st.markdown(
         f'<div class="insight-box"><b>{selected_product}</b>은 조회 데이터 기준 '
@@ -948,9 +1010,23 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
     daily = daily.reindex(full_dates, fill_value=0).rename_axis("date").reset_index()
     daily["sales_million"] = (daily["sales"] / 1_000_000).round(1)
     daily["quantity_ma7"] = daily["quantity"].rolling(7, min_periods=1).mean().round(1)
+    if not product_waste.empty:
+        daily_waste = product_waste.groupby("date")["waste_quantity"].sum()
+        daily["waste_quantity"] = daily["date"].map(daily_waste).fillna(0)
+    else:
+        daily["waste_quantity"] = 0
+    daily["waste_rate"] = np.where(
+        daily["quantity"] + daily["waste_quantity"] == 0,
+        0,
+        daily["waste_quantity"] / (daily["quantity"] + daily["waste_quantity"]) * 100,
+    ).round(1)
 
     section_title("제품 판매 Lifecycle", "EA, 백만원")
     lifecycle_fig = go.Figure()
+    lifecycle_fig.add_bar(
+        x=daily["date"], y=daily["waste_quantity"], name="폐기수량",
+        marker_color="#D95C5C", hovertemplate="%{x|%Y-%m-%d}<br>폐기수량: %{y:,.1f} EA<extra></extra>",
+    )
     lifecycle_fig.add_bar(
         x=daily["date"], y=daily["quantity"], name="판매수량",
         marker_color=COLORS["primary"], hovertemplate="%{x|%Y-%m-%d}<br>판매수량: %{y:,.1f} EA<extra></extra>",
@@ -962,6 +1038,7 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
     )
     lifecycle_fig.update_xaxes(title_text="일자")
     lifecycle_fig.update_yaxes(title_text="판매수량(EA)")
+    lifecycle_fig.update_layout(barmode="group")
     st.plotly_chart(style_figure(lifecycle_fig, 410), use_container_width=True)
 
     left, right = st.columns(2)
@@ -973,71 +1050,175 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame) -> None:
                      color_discrete_sequence=[COLORS["primary"]])
         st.plotly_chart(style_figure(fig, 400), use_container_width=True)
     with right:
-        section_title("폐기율 · 재고 추이", "EA, %")
-        st.info("폐기수량, 입고수량 및 재고수량 데이터가 추가되면 판매수량과 폐기율 추이를 함께 표시합니다.")
+        section_title("일별 폐기율 추이", "%")
+        waste_rate_fig = px.line(
+            daily, x="date", y="waste_rate", markers=True,
+            labels={"date": "일자", "waste_rate": "폐기율(%)"},
+            color_discrete_sequence=["#D95C5C"],
+        )
+        waste_rate_fig.update_traces(hovertemplate="%{x|%Y-%m-%d}<br>폐기율: %{y:,.1f}%<extra></extra>")
+        st.plotly_chart(style_figure(waste_rate_fig, 400), use_container_width=True)
+
+    if not product_waste.empty:
+        section_title("제품 폐기 사유", "EA, 원")
+        reason_detail = (
+            product_waste.groupby("waste_reason", as_index=False)
+            .agg(폐기수량=("waste_quantity", "sum"), 폐기금액=("waste_amount", "sum"))
+            .rename(columns={"waste_reason": "폐기사유"})
+            .sort_values("폐기수량", ascending=False)
+        )
+        st.dataframe(
+            reason_detail, hide_index=True, use_container_width=True,
+            column_config={
+                "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
+                "폐기금액": st.column_config.NumberColumn(format="₩ %,.0f"),
+            },
+        )
 
 
-def render_mealdo_popularity_dashboard(frame: pd.DataFrame) -> None:
-    """현재 매출 데이터로 제품의 최근 속도와 판매 지속성을 탐색합니다."""
-    end_date = frame["date"].max().normalize()
-    recent_start = end_date - pd.Timedelta(days=6)
-    previous_start = recent_start - pd.Timedelta(days=7)
-    weekly = frame.assign(week=frame["date"].dt.to_period("W").astype(str))
-    summary = frame.groupby("product_name", as_index=False).agg(
-        total_quantity=("quantity", "sum"), active_days=("date", "nunique"), active_stores=("store", "nunique")
+def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> None:
+    """선택 매장의 제품별 판매와 폐기 현황을 진단합니다."""
+    stores = sorted(frame["store"].dropna().unique())
+    selected_store = st.selectbox("분석 매장", stores, key="mealdo_diagnostic_store")
+    store_frame = frame.loc[frame["store"] == selected_store].copy()
+    store_waste = waste.loc[waste["store"] == selected_store].copy() if not waste.empty else waste.copy()
+
+    product_summary = store_frame.groupby(["product_code", "product_name"], as_index=False).agg(
+        sales=("sales", "sum"), sales_quantity=("quantity", "sum"), sales_days=("date", "nunique")
     )
-    recent = frame.loc[frame["date"].between(recent_start, end_date)].groupby("product_name")["quantity"].sum()
-    previous = frame.loc[frame["date"].between(previous_start, recent_start - pd.Timedelta(days=1))].groupby("product_name")["quantity"].sum()
-    active_weeks = weekly.groupby("product_name")["week"].nunique()
-    summary["recent_velocity"] = summary["product_name"].map(recent).fillna(0) / 7
-    summary["previous_velocity"] = summary["product_name"].map(previous).fillna(0) / 7
-    summary["active_weeks"] = summary["product_name"].map(active_weeks).fillna(0)
-    summary["growth_rate"] = np.where(
-        summary["previous_velocity"] == 0,
-        np.where(summary["recent_velocity"] > 0, 100.0, 0.0),
-        (summary["recent_velocity"] / summary["previous_velocity"] - 1) * 100,
+    if not store_waste.empty:
+        waste_summary = store_waste.groupby("product_code", as_index=False).agg(
+            waste_quantity=("waste_quantity", "sum"), waste_amount=("waste_amount", "sum")
+        )
+        product_summary = product_summary.merge(waste_summary, on="product_code", how="left")
+    else:
+        product_summary["waste_quantity"] = 0
+        product_summary["waste_amount"] = 0
+    product_summary[["waste_quantity", "waste_amount"]] = product_summary[["waste_quantity", "waste_amount"]].fillna(0)
+    product_summary["waste_rate"] = np.where(
+        product_summary["sales_quantity"] + product_summary["waste_quantity"] == 0,
+        0,
+        product_summary["waste_quantity"]
+        / (product_summary["sales_quantity"] + product_summary["waste_quantity"]) * 100,
     ).round(1)
+    product_summary["sales_million"] = (product_summary["sales"] / 1_000_000).round(1)
 
-    total_stores = max(1, frame["store"].nunique())
-    summary["store_coverage"] = (summary["active_stores"] / total_stores * 100).round(1)
-    max_weeks = max(1, int(weekly["week"].nunique()))
-    summary["continuity"] = (summary["active_weeks"] / max_weeks * 100).round(1)
-
+    total_sales_quantity = product_summary["sales_quantity"].sum()
+    total_waste_quantity = product_summary["waste_quantity"].sum()
     cols = st.columns(4)
-    cols[0].metric("분석 제품", f"{len(summary):,}개")
-    cols[1].metric("최근 판매 제품", f"{(summary['recent_velocity'] > 0).sum():,}개")
-    cols[2].metric("전 기간 판매 유지", f"{(summary['continuity'] >= 80).sum():,}개")
-    cols[3].metric("종합 지속성 점수", "설계 예정", help="폐기율·재고·품절 데이터를 포함해 가중치를 확정할 예정입니다.")
+    cols[0].metric("매장 매출", won(product_summary["sales"].sum()))
+    cols[1].metric("판매수량", f"{total_sales_quantity:,.0f} EA")
+    cols[2].metric("폐기수량", f"{total_waste_quantity:,.0f} EA")
+    cols[3].metric("폐기율", f"{disposal_rate(total_sales_quantity, total_waste_quantity):,.1f}%",
+                   help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
 
-    section_title("제품 인기 · 지속성 포지션", "EA/일, %")
-    fig = px.scatter(
-        summary, x="continuity", y="recent_velocity", size="active_stores", color="growth_rate",
-        hover_name="product_name", color_continuous_scale="RdBu",
-        labels={"continuity": "판매 지속성(%)", "recent_velocity": "최근 7일 일평균 판매수량(EA)",
-                "active_stores": "판매 매장 수", "growth_rate": "최근 성장률(%)"}, size_max=45,
+    waste_products = product_summary.loc[product_summary["waste_quantity"] > 0]
+    if not waste_products.empty:
+        highest_waste_product = waste_products.sort_values(
+            ["waste_rate", "waste_quantity"], ascending=False
+        ).iloc[0]
+        st.markdown(
+            f'<div class="insight-box"><b>{selected_store}</b>에서 폐기율이 가장 높은 제품은 '
+            f'<b>{highest_waste_product["product_name"]}</b>이며, 폐기율 '
+            f'<b>{highest_waste_product["waste_rate"]:,.1f}%</b>, 폐기수량 '
+            f'<b>{highest_waste_product["waste_quantity"]:,.0f} EA</b>입니다.</div>',
+            unsafe_allow_html=True,
+        )
+
+    left, right = st.columns(2)
+    with left:
+        section_title("제품별 폐기율 TOP 10", "%, EA")
+        waste_top = product_summary.loc[product_summary["waste_quantity"] > 0].nlargest(
+            10, "waste_rate"
+        ).sort_values("waste_rate")
+        waste_rate_fig = px.bar(
+            waste_top, x="waste_rate", y="product_name", orientation="h",
+            color="waste_rate", hover_data={"waste_quantity": ":,.0f", "sales_quantity": ":,.0f"},
+            labels={"waste_rate": "폐기율(%)", "product_name": "제품명",
+                    "waste_quantity": "폐기수량(EA)", "sales_quantity": "판매수량(EA)"},
+            color_continuous_scale=[[0, "#F8D7D7"], [1, "#D95C5C"]],
+        )
+        waste_rate_fig.update_layout(coloraxis_showscale=False)
+        st.plotly_chart(style_figure(waste_rate_fig, 420), use_container_width=True)
+    with right:
+        section_title("제품 판매수량 TOP 10", "EA")
+        sales_top = product_summary.nlargest(10, "sales_quantity").sort_values("sales_quantity")
+        sales_fig = px.bar(
+            sales_top, x="sales_quantity", y="product_name", orientation="h",
+            labels={"sales_quantity": "판매수량(EA)", "product_name": "제품명"},
+            color_discrete_sequence=[COLORS["primary"]],
+        )
+        st.plotly_chart(style_figure(sales_fig, 420), use_container_width=True)
+
+    product_options = product_summary.sort_values("waste_rate", ascending=False)["product_name"].tolist()
+    selected_product = st.selectbox("추이 분석 제품", product_options, key="mealdo_diagnostic_product")
+    selected_codes = set(product_summary.loc[product_summary["product_name"] == selected_product, "product_code"])
+    product_sales_daily = (
+        store_frame.loc[store_frame["product_code"].isin(selected_codes)]
+        .groupby("date")["quantity"].sum().rename("sales_quantity")
     )
-    st.plotly_chart(style_figure(fig, 450), use_container_width=True)
-    st.caption("우측 상단은 최근 판매속도와 지속성이 모두 높은 제품이며, 좌측 상단은 단기성 인기 가능성이 있는 제품입니다.")
+    product_waste_daily = (
+        store_waste.loc[store_waste["product_code"].isin(selected_codes)]
+        .groupby("date")["waste_quantity"].sum().rename("waste_quantity")
+        if not store_waste.empty else pd.Series(dtype=float, name="waste_quantity")
+    )
+    daily_index = pd.date_range(store_frame["date"].min(), store_frame["date"].max(), freq="D")
+    daily_product = pd.concat([product_sales_daily, product_waste_daily], axis=1).reindex(daily_index, fill_value=0).fillna(0)
+    daily_product.index.name = "date"
+    daily_product = daily_product.reset_index()
+    daily_product["sales_ma7"] = daily_product["sales_quantity"].rolling(7, min_periods=1).mean().round(1)
 
-    detail = summary.rename(columns={
-        "product_name": "제품명", "recent_velocity": "최근 일평균 판매수량",
-        "growth_rate": "최근 성장률", "store_coverage": "매장 확산도", "continuity": "판매 지속성",
-    })[["제품명", "최근 일평균 판매수량", "최근 성장률", "매장 확산도", "판매 지속성"]]
-    section_title("제품 인기 · 지속성 지표", "EA/일, %")
-    st.dataframe(detail.sort_values("최근 일평균 판매수량", ascending=False), hide_index=True, use_container_width=True,
-                 column_config={
-                     "최근 일평균 판매수량": st.column_config.NumberColumn(format="%,.1f"),
-                     "최근 성장률": st.column_config.NumberColumn(format="%,.1f%%"),
-                     "매장 확산도": st.column_config.NumberColumn(format="%,.1f%%"),
-                     "판매 지속성": st.column_config.NumberColumn(format="%,.1f%%"),
-                 })
+    section_title(f"{selected_product} 판매 · 폐기 추이", "EA")
+    trend_fig = go.Figure()
+    trend_fig.add_bar(x=daily_product["date"], y=daily_product["sales_quantity"], name="판매수량",
+                      marker_color=COLORS["primary"], hovertemplate="%{x|%Y-%m-%d}<br>판매: %{y:,.1f} EA<extra></extra>")
+    trend_fig.add_bar(x=daily_product["date"], y=daily_product["waste_quantity"], name="폐기수량",
+                      marker_color="#D95C5C", hovertemplate="%{x|%Y-%m-%d}<br>폐기: %{y:,.1f} EA<extra></extra>")
+    trend_fig.add_scatter(x=daily_product["date"], y=daily_product["sales_ma7"], name="판매 7일 이동평균",
+                          mode="lines", line=dict(color=COLORS["accent"], width=3),
+                          hovertemplate="%{x|%Y-%m-%d}<br>7일 평균: %{y:,.1f} EA<extra></extra>")
+    trend_fig.update_layout(barmode="group")
+    trend_fig.update_xaxes(title_text="일자")
+    trend_fig.update_yaxes(title_text="수량(EA)")
+    st.plotly_chart(style_figure(trend_fig, 420), use_container_width=True)
+
+    if not store_waste.empty:
+        section_title("매장 폐기 사유 구성", "EA, 원")
+        reason_summary = store_waste.groupby("waste_reason", as_index=False).agg(
+            폐기수량=("waste_quantity", "sum"), 폐기금액=("waste_amount", "sum")
+        ).rename(columns={"waste_reason": "폐기사유"}).sort_values("폐기수량", ascending=False)
+        st.dataframe(
+            reason_summary, hide_index=True, use_container_width=True,
+            column_config={
+                "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
+                "폐기금액": st.column_config.NumberColumn(format="₩ %,.0f"),
+            },
+        )
+
+    detail = product_summary.rename(columns={
+        "product_name": "제품명", "sales": "매출", "sales_quantity": "판매수량",
+        "waste_quantity": "폐기수량", "waste_amount": "폐기금액", "waste_rate": "폐기율",
+    })[["제품명", "매출", "판매수량", "폐기수량", "폐기금액", "폐기율"]]
+    section_title("매장 제품 상세 실적", "EA, 원, %")
+    st.dataframe(
+        detail.sort_values(["폐기율", "폐기수량"], ascending=False), hide_index=True, use_container_width=True,
+        column_config={
+            "매출": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "판매수량": st.column_config.NumberColumn(format="%,.0f"),
+            "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
+            "폐기금액": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "폐기율": st.column_config.NumberColumn(format="%,.1f%%"),
+        },
+    )
 
 
-def render_mealdo_store_product_dashboard(frame: pd.DataFrame) -> None:
+def render_mealdo_store_product_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> None:
     """제품별 매장 운영 성과와 향후 폐기 분석 위치를 제공하는 화면입니다."""
     products = sorted(frame["product_name"].dropna().unique())
     selected_product = st.selectbox("분석 제품", products, key="mealdo_store_product")
     product_frame = frame.loc[frame["product_name"] == selected_product]
+    product_codes = set(product_frame["product_code"])
+    product_waste = waste.loc[waste["product_code"].isin(product_codes)].copy() if not waste.empty else waste.copy()
     store_summary = product_frame.groupby("store", as_index=False).agg(
         sales=("sales", "sum"), quantity=("quantity", "sum"), active_days=("date", "nunique")
     )
@@ -1045,18 +1226,35 @@ def render_mealdo_store_product_dashboard(frame: pd.DataFrame) -> None:
     store_summary["daily_quantity"] = np.where(
         store_summary["active_days"] == 0, 0, store_summary["quantity"] / store_summary["active_days"]
     ).round(1)
+    if not product_waste.empty:
+        waste_by_store = product_waste.groupby("store", as_index=False).agg(
+            waste_quantity=("waste_quantity", "sum"), waste_amount=("waste_amount", "sum")
+        )
+        store_summary = store_summary.merge(waste_by_store, on="store", how="left")
+    else:
+        store_summary["waste_quantity"] = 0
+        store_summary["waste_amount"] = 0
+    store_summary[["waste_quantity", "waste_amount"]] = store_summary[["waste_quantity", "waste_amount"]].fillna(0)
+    store_summary["waste_rate"] = np.where(
+        store_summary["quantity"] + store_summary["waste_quantity"] == 0,
+        0,
+        store_summary["waste_quantity"] / (store_summary["quantity"] + store_summary["waste_quantity"]) * 100,
+    ).round(1)
 
     cols = st.columns(4)
     cols[0].metric("취급 매장", f"{store_summary['store'].nunique():,}개")
     cols[1].metric("누적 판매수량", f"{store_summary['quantity'].sum():,.0f} EA")
     cols[2].metric("매장당 평균수량", f"{store_summary['quantity'].mean():,.1f} EA")
-    cols[3].metric("운영 권고", "연동 예정", help="판매량과 폐기율을 함께 사용해 확대·유지·축소 권고를 제공합니다.")
+    cols[3].metric("폐기율", f"{disposal_rate(store_summary['quantity'].sum(), store_summary['waste_quantity'].sum()):,.1f}%",
+                   help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
 
-    section_title("매장별 제품 판매 포지션", "백만원, EA/일")
+    section_title("매장별 판매량 × 폐기율 포지션", "EA/일, %")
     fig = px.scatter(
-        store_summary, x="sales_million", y="daily_quantity", size="quantity", hover_name="store",
-        labels={"sales_million": "매출액(백만원)", "daily_quantity": "일평균 판매수량(EA)", "quantity": "누적 판매수량"},
-        color_discrete_sequence=[COLORS["primary"]], size_max=48,
+        store_summary, x="daily_quantity", y="waste_rate", size="quantity", color="waste_rate", hover_name="store",
+        hover_data={"sales_million": ":,.1f", "waste_quantity": ":,.0f"},
+        labels={"daily_quantity": "일평균 판매수량(EA)", "waste_rate": "폐기율(%)",
+                "quantity": "누적 판매수량", "sales_million": "매출액(백만원)", "waste_quantity": "폐기수량(EA)"},
+        color_continuous_scale=[[0, "#DCE9F6"], [1, "#D95C5C"]], size_max=48,
     )
     st.plotly_chart(style_figure(fig, 430), use_container_width=True)
 
@@ -1069,8 +1267,15 @@ def render_mealdo_store_product_dashboard(frame: pd.DataFrame) -> None:
                           color_discrete_sequence=[COLORS["primary"]])
         st.plotly_chart(style_figure(rank_fig, 410), use_container_width=True)
     with right:
-        section_title("판매량 × 폐기율 운영 매트릭스", "EA, %")
-        st.info("폐기 데이터가 추가되면 매장을 물량 확대·발주 최적화·판매 개선·취급 검토의 4개 영역으로 분류합니다.")
+        section_title("매장별 폐기율 TOP 15", "%")
+        waste_rank = store_summary.nlargest(15, "waste_rate").sort_values("waste_rate")
+        waste_fig = px.bar(
+            waste_rank, x="waste_rate", y="store", orientation="h",
+            labels={"waste_rate": "폐기율(%)", "store": "매장명"},
+            color="waste_rate", color_continuous_scale=[[0, "#F8D7D7"], [1, "#D95C5C"]],
+        )
+        waste_fig.update_layout(coloraxis_showscale=False)
+        st.plotly_chart(style_figure(waste_fig, 410), use_container_width=True)
 
 
 def render_paul_store_dashboard(frame: pd.DataFrame) -> None:
@@ -1139,7 +1344,7 @@ if selected_brand == "밀도":
         for path in store_csv_paths
     )
     try:
-        mealdo_data, paul_data = load_store_sales_data(store_data_version)
+        mealdo_data, paul_data, mealdo_waste_data = load_store_sales_data(store_data_version)
     except Exception as exc:
         st.error(f"매장 데이터를 불러오지 못했습니다: {exc}")
         st.stop()
@@ -1152,7 +1357,7 @@ if selected_brand == "밀도":
         store_nav_labels = {
             "밀도 Sales Overview": "01  밀도 Sales Overview",
             "밀도 제품 Lifecycle": "02  제품 Lifecycle 분석",
-            "밀도 인기·지속성 분석": "03  제품 인기·지속성 분석",
+            "밀도 매장 상세 분석": "03  매장 폐기·판매 분석",
             "밀도 매장×제품 분석": "04  매장 × 제품 운영 분석",
             "폴바셋 Sales Overview": "05  폴바셋 Sales Overview",
         }
@@ -1175,14 +1380,14 @@ if selected_brand == "밀도":
     store_header_title = {
         "밀도 Sales Overview": "밀도 Store Sales Overview",
         "밀도 제품 Lifecycle": "밀도 Product Lifecycle",
-        "밀도 인기·지속성 분석": "밀도 Product Sustainability",
+        "밀도 매장 상세 분석": "밀도 Store Waste & Sales Diagnostics",
         "밀도 매장×제품 분석": "밀도 Store × Product Performance",
         "폴바셋 Sales Overview": "Paul Bassett Store Sales Overview",
     }[selected_store_page]
     store_header_description = {
         "밀도 Sales Overview": "매장과 제품 판매 흐름을 한눈에 확인합니다.",
         "밀도 제품 Lifecycle": "제품 출시 이후 판매 추이와 생명주기를 분석합니다.",
-        "밀도 인기·지속성 분석": "단기 판매속도와 장기 판매 지속성을 비교합니다.",
+        "밀도 매장 상세 분석": "매장별 제품 판매와 폐기 현황을 진단합니다.",
         "밀도 매장×제품 분석": "제품별 매장 성과와 운영 방향을 탐색합니다.",
         "폴바셋 Sales Overview": "폴바셋 매장별 일매출 성과를 분석합니다.",
     }[selected_store_page]
@@ -1254,7 +1459,7 @@ if selected_brand == "밀도":
 
     mealdo_product_pages = {
         "밀도 제품 Lifecycle",
-        "밀도 인기·지속성 분석",
+        "밀도 매장 상세 분석",
         "밀도 매장×제품 분석",
     }
     if selected_store_page in mealdo_product_pages:
@@ -1265,14 +1470,24 @@ if selected_brand == "밀도":
             st.warning("대분류 '기타'를 제외하면 선택 조건에 해당하는 제품 데이터가 없습니다.")
             st.stop()
 
+    if is_mealdo_page and not mealdo_waste_data.empty:
+        selected_product_codes = set(store_filtered["product_code"])
+        mealdo_waste_filtered = mealdo_waste_data[
+            mealdo_waste_data["date"].between(store_start, store_end)
+            & mealdo_waste_data["store"].isin(selected_stores)
+            & mealdo_waste_data["product_code"].isin(selected_product_codes)
+        ].copy()
+    else:
+        mealdo_waste_filtered = mealdo_waste_data.iloc[0:0].copy()
+
     if selected_store_page == "밀도 Sales Overview":
-        render_mealdo_store_dashboard(store_filtered)
+        render_mealdo_store_dashboard(store_filtered, mealdo_waste_filtered)
     elif selected_store_page == "밀도 제품 Lifecycle":
-        render_mealdo_lifecycle_dashboard(store_filtered)
-    elif selected_store_page == "밀도 인기·지속성 분석":
-        render_mealdo_popularity_dashboard(store_filtered)
+        render_mealdo_lifecycle_dashboard(store_filtered, mealdo_waste_filtered)
+    elif selected_store_page == "밀도 매장 상세 분석":
+        render_mealdo_store_diagnostic_dashboard(store_filtered, mealdo_waste_filtered)
     elif selected_store_page == "밀도 매장×제품 분석":
-        render_mealdo_store_product_dashboard(store_filtered)
+        render_mealdo_store_product_dashboard(store_filtered, mealdo_waste_filtered)
     else:
         render_paul_store_dashboard(store_filtered)
     st.stop()
