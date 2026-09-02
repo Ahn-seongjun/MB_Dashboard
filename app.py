@@ -514,12 +514,11 @@ def aggregate_period(frame: pd.DataFrame, frequency: str) -> pd.DataFrame:
 
 def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_date: pd.Timestamp) -> None:
     channel_count = frame["channel"].nunique()
-    channel_detail_count = frame["channel_detail"].nunique()
     account_count = frame["account_name"].nunique()
     total_sales = frame["sales"].sum()
     total_quantity = frame["quantity"].sum()
     summary_cols = st.columns(4)
-    summary_cols[0].metric("채널 1 / 2", f"{channel_count:,} / {channel_detail_count:,}개")
+    summary_cols[0].metric("활성 채널", f"{channel_count:,}개", help="Channel1_1 컬럼의 고유값 개수입니다.")
     summary_cols[1].metric("활성 매출처", f"{account_count:,}개")
     summary_cols[2].metric("총 매출", won(total_sales))
     summary_cols[3].metric("판매 수량", f"{total_quantity:,.0f}개")
@@ -1526,8 +1525,9 @@ kpi_cols = st.columns(4)
 kpi_cols[0].metric("총 매출", won(sales), f"{percent_change(sales, prev_sales):+.1f}% · {comparison_label}")
 kpi_cols[1].metric("판매 수량", f"{quantity:,.0f}개", f"{percent_change(quantity, prev_quantity):+.1f}% · {comparison_label}")
 kpi_cols[2].metric(
-    "활성 채널 1 / 2",
-    f"{filtered['channel'].nunique():,} / {filtered['channel_detail'].nunique():,}개",
+    "활성 채널",
+    f"{filtered['channel'].nunique():,}개",
+    help="Channel1_1 컬럼의 고유값 개수입니다.",
 )
 kpi_cols[3].metric("판매 제품", f"{filtered['product_name'].nunique():,}개")
 st.caption(
