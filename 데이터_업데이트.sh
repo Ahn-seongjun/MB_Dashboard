@@ -7,6 +7,18 @@ set -e
 cd "$(dirname "$0")"
 git rev-parse --is-inside-work-tree >/dev/null
 
+if [ -x ".venv/Scripts/python.exe" ]; then
+    PYTHON=".venv/Scripts/python.exe"
+elif command -v python >/dev/null 2>&1; then
+    PYTHON="python"
+else
+    echo "Python 실행 파일을 찾을 수 없습니다."
+    exit 1
+fi
+
+echo "밀도·폴바셋 월별 CSV 병합 중..."
+"$PYTHON" merge_mealdo_monthly_data.py
+
 BRANCH="$(git branch --show-current)"
 if [ -z "$BRANCH" ]; then
     echo "현재 Git 브랜치를 확인할 수 없습니다."
