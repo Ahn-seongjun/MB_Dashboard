@@ -28,6 +28,24 @@ COLORS = {
     "grid": "#D9E3EC",
 }
 BLUE_PALETTE = ["#143D75", "#194F95", "#245FA3", "#3F78B8", "#6697C8", "#91B1D7"]
+# 로고 색상을 기준으로 한 고정 범례 색상입니다. 같은 항목은 모든 그래프에서 같은 색을 사용합니다.
+CHANNEL_COLOR_MAP = {
+    "B2B": "#12A6D4",
+    "KA": "#B18455",
+    "온라인": "#8F9194",
+    "[미매핑]": "#D85C5C",
+    "(미매핑)": "#D85C5C",
+}
+CATEGORY_COLOR_MAP = {
+    "제품제과": "#12A6D4",
+    "제품제빵": "#B18455",
+    "상품제과": "#6C63B5",
+    "상품제빵": "#4E8F72",
+    "반제품제과": "#D66D45",
+    "반제품제빵": "#5E78A8",
+    "원재료가공식품": "#8F9194",
+    "기타": "#B8B9BB",
+}
 MEALDO_VAT_RATE = 0.10
 
 # 집계 로직 변경 시 값을 올리면 기존 Streamlit 데이터 캐시를 즉시 폐기합니다.
@@ -37,7 +55,7 @@ DATA_TRANSFORM_VERSION = 9
 st.markdown(
     """
     <style>
-        .stApp { background: #F4F7FB; }
+        .stApp { background: #FFFFFF; }
         [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #D9E3EC; }
         /* Streamlit의 고정 상단 툴바 아래에서 본문이 시작되도록 여백 확보 */
         .block-container { padding-top: 4.5rem; padding-bottom: 2rem; }
@@ -48,7 +66,7 @@ st.markdown(
         [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_dertte),
         [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
             position: sticky; top: 3.75rem; z-index: 900;
-            background: rgba(244, 247, 251, .97);
+            background: rgba(255, 255, 255, .97);
             padding: .78rem .15rem .68rem;
             margin: -.8rem -.15rem .7rem;
             border-bottom: 1px solid #DCE9F6;
@@ -77,6 +95,22 @@ st.markdown(
         }
         [data-testid="stMetricLabel"] { color: #617B98; }
         [data-testid="stMetricValue"] { color: #143D75; }
+        .st-key-dertte_overview_kpis [data-testid="stMetric"] {
+            padding: 12px 15px; border-radius: 13px;
+            min-height: 112px; box-sizing: border-box;
+        }
+        .st-key-dertte_overview_kpis [data-testid="stMetricLabel"] {
+            font-size: .78rem;
+        }
+        .st-key-dertte_overview_kpis [data-testid="stMetricValue"] {
+            font-size: 1.55rem;
+        }
+        .st-key-dertte_overview_kpis [data-testid="stMetricDelta"] {
+            font-size: .72rem;
+        }
+        .st-key-dertte_current_month_metric [data-testid="stMetricDelta"] {
+            visibility: hidden;
+        }
         .st-key-mealdo_first_sale_metric [data-testid="stMetricValue"] {
             font-size: 1.35rem; white-space: nowrap;
         }
@@ -110,9 +144,6 @@ st.markdown(
         }
         .st-key-store_nav_mealdo [data-testid="stButton"],
         .st-key-store_nav_paul [data-testid="stButton"] { margin-bottom: .28rem; }
-        .store-nav-current {
-            margin: -.15rem 0 .5rem; color: #617B98; font-size: .76rem;
-        }
         [data-testid="stSidebar"] [data-testid="stExpander"] {
             margin-bottom: .58rem;
         }
@@ -159,6 +190,11 @@ def won(value: float) -> str:
     if value >= 10_000:
         return f"{sign}{value / 10_000:,.0f}만원"
     return f"{sign}{value:,.0f}원"
+
+
+def million_won(value: float) -> str:
+    """금액을 백만원 단위로 고정해 표시합니다."""
+    return f"{value / 1_000_000:,.1f}백만원"
 
 
 def percent_change(current: float, previous: float) -> float:
@@ -549,7 +585,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     summary_cols = st.columns(4)
     summary_cols[0].metric("활성 채널", f"{channel_count:,}개", help="Channel1_1 컬럼의 고유값 개수입니다.")
     summary_cols[1].metric("활성 매출처", f"{account_count:,}개")
-    summary_cols[2].metric("총 매출", won(total_sales))
+    summary_cols[2].metric("총 매출", million_won(total_sales))
     summary_cols[3].metric("판매 수량", f"{total_quantity:,.0f}개")
 
     # 매출이 없는 날짜도 0으로 표시하기 위해 선택 기간의 날짜×채널 조합을 완성합니다.
@@ -573,7 +609,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         y="sales_million",
         color="channel",
         markers=True,
-        color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
+        color_discrete_map=CHANNEL_COLOR_MAP,
         labels={"date": "일자", "sales_million": "매출(백만원)", "channel": "채널"},
     )
     daily_tick_step = max(1, int(np.ceil(len(full_dates) / 12)))
@@ -594,9 +630,9 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     )
     section_title("채널별 일간 매출 흐름", "백만원")
     st.plotly_chart(style_figure(trend_fig, 380), use_container_width=True)
-    with st.expander("일간 채널 집계 데이터 보기 (단위: 원)"):
+    with st.expander("일간 채널 집계 데이터 보기 (단위: 백만원)"):
         daily_channel_table = (
-            daily_channel.pivot(index="date", columns="channel", values="sales")
+            daily_channel.pivot(index="date", columns="channel", values="sales_million")
             .fillna(0)
             .reset_index()
         )
@@ -606,7 +642,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             use_container_width=True,
             hide_index=True,
             column_config={
-                column: st.column_config.NumberColumn(format="₩ %,.0f")
+                column: st.column_config.NumberColumn(format="%,.1f")
                 for column in active_channels
             },
         )
@@ -636,7 +672,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     )
     st.markdown(
         f'<div class="insight-box">선택 기간 매출 1위 채널은 <b>{leading_channel["channel"]}</b>로 '
-        f'<b>{won(leading_channel["sales"])}</b>을 기록했습니다. 이 채널에서 판매수량이 가장 많은 제품은 '
+        f'<b>{million_won(leading_channel["sales"])}</b>을 기록했습니다. 이 채널에서 판매수량이 가장 많은 제품은 '
         f'<b>{leading_product["product_name"]}</b> ({leading_product["quantity"]:,.0f}개)입니다.</div>',
         unsafe_allow_html=True,
     )
@@ -652,7 +688,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             y="account_name",
             color="channel",
             orientation="h",
-            color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
+            color_discrete_map=CHANNEL_COLOR_MAP,
             labels={"sales_million": "매출액", "account_name": "매출처명", "channel": "채널"},
         )
         rank_fig.update_yaxes(
@@ -673,7 +709,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             color="channel",
             hover_name="account_name",
             hover_data={"bubble_size": False},
-            color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
+            color_discrete_map=CHANNEL_COLOR_MAP,
             labels={
                 "sales_million": "매출액",
                 "quantity": "판매수량(EA)",
@@ -686,14 +722,20 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
 
     section_title("채널별 판매수량 TOP 제품", "EA")
     st.markdown('<div class="section-sub">각 채널에서 실제로 어떤 제품이 많이 움직였는지 판매수량 기준으로 비교합니다.</div>', unsafe_allow_html=True)
-    channel_product = frame.groupby(["channel", "product_name"], as_index=False)["quantity"].sum()
+    channel_product_source = frame.loc[
+        ~frame["channel"].astype(str).str.contains("미매핑", na=False)
+    ]
+    channel_product = channel_product_source.groupby(
+        ["channel", "product_name"], as_index=False
+    )["quantity"].sum()
     channel_product = (
         channel_product.sort_values(["channel", "quantity"], ascending=[True, False])
         .groupby("channel", as_index=False, group_keys=False)
         .head(10)
         .sort_values(["channel", "quantity"], ascending=[True, True])
     )
-    facet_rows = max(1, int(np.ceil(channel_count / 2)))
+    product_channel_count = channel_product["channel"].nunique()
+    facet_rows = max(1, int(np.ceil(product_channel_count / 2)))
     channel_product_fig = px.bar(
         channel_product,
         x="quantity",
@@ -702,7 +744,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         facet_col="channel",
         facet_col_wrap=2,
         orientation="h",
-        color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
+        color_discrete_map=CHANNEL_COLOR_MAP,
         labels={"quantity": "판매수량(EA)", "product_name": "제품명", "channel": "채널"},
     )
     channel_product_fig.update_yaxes(
@@ -722,7 +764,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         x="channel",
         y="sales",
         color="category_large",
-        color_discrete_sequence=BLUE_PALETTE,
+        color_discrete_map=CATEGORY_COLOR_MAP,
         labels={"channel": "채널", "sales": "매출 비중(%)", "category_large": "MC 대분류"},
     )
     category_fig.update_layout(barmode="stack", barnorm="percent")
@@ -748,7 +790,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
     total_sales = product_summary["sales"].sum()
     product_cols = st.columns(4)
     product_cols[0].metric("판매 제품", f"{product_summary['product_name'].nunique():,}개")
-    product_cols[1].metric("총 매출", won(total_sales))
+    product_cols[1].metric("총 매출", million_won(total_sales))
     product_cols[2].metric("판매 수량", f"{product_summary['quantity'].sum():,.0f}개")
     product_cols[3].metric("평균 물품단가", won(weighted_unit_price(frame)))
 
@@ -756,7 +798,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
     large_category_sales = frame.groupby("category_large", as_index=False)["sales"].sum().nlargest(1, "sales").iloc[0]
     st.markdown(
         f'<div class="insight-box">매출 기여도가 가장 높은 제품은 <b>{leading_product["product_name"]}</b>로 '
-        f'<b>{won(leading_product["sales"])}</b>을 기록했습니다. MC 대분류에서는 '
+        f'<b>{million_won(leading_product["sales"])}</b>을 기록했습니다. MC 대분류에서는 '
         f'<b>{large_category_sales["category_large"]}</b>가 전체 매출을 가장 크게 이끌고 있습니다.</div>',
         unsafe_allow_html=True,
     )
@@ -820,17 +862,17 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
 
     product_detail = product_summary.rename(
         columns={
-            "product_name": "제품명", "sales": "매출", "quantity": "판매수량",
+            "product_name": "제품명", "sales_million": "매출(백만원)", "quantity": "판매수량",
             "average_unit_price": "평균물품단가",
         }
-    )[["제품명", "매출", "판매수량", "평균물품단가"]]
-    section_title("제품 상세 실적", "EA, 원")
+    )[["제품명", "매출(백만원)", "판매수량", "평균물품단가"]]
+    section_title("제품 상세 실적", "백만원, EA, 원")
     st.dataframe(
-        product_detail.sort_values("매출", ascending=False),
+        product_detail.sort_values("매출(백만원)", ascending=False),
         use_container_width=True,
         hide_index=True,
         column_config={
-            "매출": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "매출(백만원)": st.column_config.NumberColumn(format="%,.1f"),
             "판매수량": st.column_config.NumberColumn(format="%,.0f"),
             "평균물품단가": st.column_config.NumberColumn(format="₩ %,.0f"),
         },
@@ -1661,11 +1703,6 @@ if selected_brand == "밀도":
             "밀도 Sales Analytics",
             expanded=selected_store_page in mealdo_nav_labels,
         ):
-            if selected_store_page in mealdo_nav_labels:
-                st.markdown(
-                    f'<div class="store-nav-current">현재: {mealdo_nav_labels[selected_store_page]}</div>',
-                    unsafe_allow_html=True,
-                )
             with st.container(key="store_nav_mealdo"):
                 for page_name, page_label in mealdo_nav_labels.items():
                     if st.button(
@@ -1681,11 +1718,6 @@ if selected_brand == "밀도":
             "폴바셋 Sales Analytics",
             expanded=selected_store_page in paul_nav_labels,
         ):
-            if selected_store_page in paul_nav_labels:
-                st.markdown(
-                    f'<div class="store-nav-current">현재: {paul_nav_labels[selected_store_page]}</div>',
-                    unsafe_allow_html=True,
-                )
             with st.container(key="store_nav_paul"):
                 for page_name, page_label in paul_nav_labels.items():
                     if st.button(
@@ -1878,6 +1910,7 @@ with st.sidebar:
 
 default_end_date = data_max_date
 default_start_date = default_end_date.replace(day=1)
+available_months = sorted(data["date"].dt.to_period("M").unique())
 header_title = {
     "채널 Sales Overview": "Channel Sales Overview",
     "채널 상세 Sales 분석": "Channel Performance Lab",
@@ -1893,25 +1926,42 @@ with st.container(key="sticky_dashboard_header_dertte"):
     header_left, header_right = st.columns([1, 1.35], vertical_alignment="center")
     with header_right:
         query_columns = st.columns([1.3, 1])
-        with query_columns[0]:
-            selected_dates = st.date_input(
-                "조회 기간",
-                value=(default_start_date, default_end_date),
-                min_value=data_min_date,
-                max_value=data_max_date,
-                format="YYYY/MM/DD",
-                label_visibility="collapsed",
-            )
         if selected_page == "채널 Sales Overview":
             with query_columns[1]:
                 frequency = st.segmented_control(
                     "집계 단위",
-                    ["일간", "주간", "월간"],
+                    ["일간", "월간"],
                     default="일간",
                     label_visibility="collapsed",
+                    key="dertte_frequency",
                 )
         else:
-            frequency = "주간"
+            frequency = "일간"
+
+        with query_columns[0]:
+            if selected_page == "채널 Sales Overview" and frequency == "월간":
+                selected_month = st.selectbox(
+                    "조회 월",
+                    available_months,
+                    index=len(available_months) - 1,
+                    format_func=lambda value: f"{value.year}년 {value.month:02d}월",
+                    label_visibility="collapsed",
+                    key="dertte_month",
+                )
+                selected_dates = (
+                    max(selected_month.start_time.date(), data_min_date),
+                    min(selected_month.end_time.date(), data_max_date),
+                )
+            else:
+                selected_dates = st.date_input(
+                    "조회 기간",
+                    value=(default_start_date, default_end_date),
+                    min_value=data_min_date,
+                    max_value=data_max_date,
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed",
+                    key="dertte_date_range",
+                )
 
     with header_left:
         selected_header_start = selected_dates[0] if len(selected_dates) >= 1 else default_start_date
@@ -2016,13 +2066,13 @@ with st.sidebar:
         selected_middle = sorted(selected_category_base["category_middle"].dropna().unique())
         selected_small = sorted(selected_category_base["category_small"].dropna().unique())
         selected_detail = sorted(selected_category_base["category_detail"].dropna().unique())
-        frequency = "주간"
+        frequency = "일간"
     else:
         selected_large = sorted(category_base["category_large"].dropna().unique())
         selected_middle = sorted(category_base["category_middle"].dropna().unique())
         selected_small = sorted(category_base["category_small"].dropna().unique())
         selected_detail = sorted(category_base["category_detail"].dropna().unique())
-        frequency = "주간"
+        frequency = "일간"
 
     st.markdown("---")
     st.markdown('<span class="status-pill">● CSV 데이터</span>', unsafe_allow_html=True)
@@ -2050,23 +2100,46 @@ if filtered.empty:
     st.warning("선택한 조건에 해당하는 데이터가 없습니다.")
     st.stop()
 
-comparison_labels = {
-    "일간": "전일 대비",
-    "주간": "전주 대비",
-    "월간": "전월 대비",
-}
-comparison_label = comparison_labels.get(frequency or "주간", "전주 대비")
-previous_start, previous_end = comparison_period(start_date, end_date, frequency or "주간")
-previous = data[
-    data["date"].between(previous_start, previous_end)
-    & data["channel"].isin(selected_channels)
+# 조회기간과 별개로 누계 비교에 필요한 전체 이력을 현재 상세 필터로 제한합니다.
+detail_history = data[
+    data["channel"].isin(selected_channels)
     & data["channel_detail"].isin(selected_channel_details)
     & data["account_name"].isin(selected_accounts)
     & data["category_large"].isin(selected_large)
     & data["category_middle"].isin(selected_middle)
     & data["category_small"].isin(selected_small)
     & data["category_detail"].isin(selected_detail)
-]
+].copy()
+
+reference_date = end_date.normalize()
+current_month_start = reference_date.replace(day=1)
+_, previous_month_end = comparison_period(reference_date, reference_date, "월간")
+previous_month_start = previous_month_end.replace(day=1)
+previous_year_end = reference_date - pd.DateOffset(years=1)
+if reference_date.is_month_end:
+    previous_year_end = previous_year_end + pd.offsets.MonthEnd(0)
+previous_year_month_start = previous_year_end.replace(day=1)
+previous_year_ytd_start = pd.Timestamp(year=previous_year_end.year, month=1, day=1)
+current_year_ytd_start = pd.Timestamp(year=reference_date.year, month=1, day=1)
+
+def sales_between(period_start: pd.Timestamp, period_end: pd.Timestamp) -> float:
+    return float(detail_history.loc[
+        detail_history["date"].between(period_start, period_end), "sales"
+    ].sum())
+
+daily_sales = sales_between(reference_date, reference_date)
+previous_day = reference_date - pd.DateOffset(days=1)
+previous_day_sales = sales_between(previous_day, previous_day)
+current_month_sales = sales_between(current_month_start, reference_date)
+previous_month_sales = sales_between(previous_month_start, previous_month_end)
+previous_year_month_sales = sales_between(previous_year_month_start, previous_year_end)
+current_year_ytd_sales = sales_between(current_year_ytd_start, reference_date)
+previous_year_ytd_sales = sales_between(previous_year_ytd_start, previous_year_end)
+
+def period_delta(current_value: float, comparison_value: float, label: str) -> str:
+    if comparison_value == 0:
+        return f"비교 데이터 없음 · {label}"
+    return f"{percent_change(current_value, comparison_value):+.1f}% · {label}"
 
 if selected_page == "채널 상세 Sales 분석":
     render_channel_detail(filtered, start_date, end_date)
@@ -2076,110 +2149,254 @@ if selected_page == "제품별 Sales Overview":
     render_product_overview(filtered, start_date, end_date)
     st.stop()
 
-sales = filtered["sales"].sum()
-quantity = filtered["quantity"].sum()
-prev_sales = previous["sales"].sum()
-prev_quantity = previous["quantity"].sum()
+with st.container(key="dertte_overview_kpis"):
+    kpi_cols = st.columns(4)
+    if frequency == "일간":
+        kpi_cols[0].metric(
+            f"일매출 ({reference_date:%m/%d})", million_won(daily_sales),
+            period_delta(daily_sales, previous_day_sales, "전일 대비"),
+            help=(
+                f"{reference_date:%Y.%m.%d} 일매출을 {previous_day:%Y.%m.%d} 일매출과 비교합니다."
+            ),
+        )
+        with kpi_cols[1].container(key="dertte_current_month_metric"):
+            st.metric(
+                f"당월 누계 ({reference_date.month}월)", million_won(current_month_sales),
+                "높이 맞춤",
+                delta_color="off",
+            )
+        kpi_cols[2].metric(
+            f"전월 누계 ({previous_month_end.month}월)", million_won(previous_month_sales),
+            period_delta(current_month_sales, previous_month_sales, "당월 누계 증감"),
+            help=(
+                f"표시 금액은 {previous_month_start:%Y.%m.%d}-{previous_month_end:%Y.%m.%d} 누계입니다. "
+                f"증감률은 당월 누계({current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
+                "전월 누계보다 얼마나 증감했는지 계산합니다."
+            ),
+        )
+        kpi_cols[3].metric(
+            f"전년 동월 누계 ({previous_year_end:%y년 %m월})", million_won(previous_year_month_sales),
+            period_delta(current_month_sales, previous_year_month_sales, "당월 누계 전년 대비"),
+            help=(
+                f"표시 금액은 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 누계입니다. "
+                f"증감률은 당월 누계({current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
+                "전년 동월 누계보다 얼마나 증감했는지 계산합니다."
+            ),
+        )
+    else:
+        kpi_cols[0].metric(
+            f"월 매출 ({reference_date.month}월)", million_won(current_month_sales),
+            period_delta(current_month_sales, previous_month_sales, "전월 대비"),
+        )
+        kpi_cols[1].metric(
+            f"당해 누계 매출 ({reference_date.year}년)", million_won(current_year_ytd_sales),
+            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "전년 동기 대비"),
+        )
+        kpi_cols[2].metric(
+            f"전년 동월 매출 ({previous_year_end:%y년 %m월})", million_won(previous_year_month_sales),
+            period_delta(
+                current_month_sales,
+                previous_year_month_sales,
+                "당월 전년 대비",
+            ),
+            help=(
+                f"표시 금액은 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 매출입니다. "
+                f"증감률은 당월({current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d}) 매출이 "
+                "전년 동월보다 얼마나 증감했는지 계산합니다."
+            ),
+        )
+        kpi_cols[3].metric(
+            f"전년 누계 매출 ({previous_year_end.year}년)", million_won(previous_year_ytd_sales),
+            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "당해 누계 전년 대비"),
+            help=(
+                f"표시 금액은 {previous_year_ytd_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 누계입니다. "
+                f"증감률은 당해 누계({current_year_ytd_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
+                "전년 같은 기간보다 얼마나 증감했는지 계산합니다."
+            ),
+        )
 
-kpi_cols = st.columns(4)
-kpi_cols[0].metric("총 매출", won(sales), f"{percent_change(sales, prev_sales):+.1f}% · {comparison_label}")
-kpi_cols[1].metric("판매 수량", f"{quantity:,.0f}개", f"{percent_change(quantity, prev_quantity):+.1f}% · {comparison_label}")
-kpi_cols[2].metric(
-    "활성 채널",
-    f"{filtered['channel'].nunique():,}개",
-    help="Channel1_1 컬럼의 고유값 개수입니다.",
-)
-kpi_cols[3].metric("판매 제품", f"{filtered['product_name'].nunique():,}개")
 st.caption(
-    f"{comparison_label} 기준 · 현재 {start_date:%Y.%m.%d}-{end_date:%Y.%m.%d} / "
-    f"비교 {previous_start:%Y.%m.%d}-{previous_end:%Y.%m.%d}"
+    f"누계 기준 · 당월 {current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d} / "
+    f"전월 {previous_month_start:%Y.%m.%d}-{previous_month_end:%Y.%m.%d} / "
+    f"전년 동월 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d}"
 )
-
-# 상세 실적은 아래에서 계산하지만 이 컨테이너 위치(KPI 바로 아래)에 렌더링합니다.
-account_detail_placeholder = st.container()
 
 section_title("기간별 판매 추이", "백만원, EA")
 trend_metric_label = st.segmented_control("추이 기준", ["매출액", "판매수량"], default="매출액")
-trend = aggregate_period(filtered, frequency or "일간")
-trend["sales_million"] = (trend["sales"] / 1_000_000).round(1)
-trend_column = "sales_million" if trend_metric_label == "매출액" else "quantity"
-trend_labels = {"date": "일자", "sales_million": "매출액(백만원)", "quantity": "판매수량"}
-trend_fig = px.bar(
+trend_source_column = "sales" if trend_metric_label == "매출액" else "quantity"
+trend_value_label = "매출액(백만원)" if trend_metric_label == "매출액" else "판매수량(EA)"
+
+
+def comparison_trend_series(start, end, axis_kind, series_name):
+    """비교 기간의 실적을 일/월 번호 축에 맞춰 반환합니다."""
+    start, end = pd.Timestamp(start).normalize(), pd.Timestamp(end).normalize()
+    period_rows = detail_history[
+        detail_history["date"].between(start, end)
+    ].copy()
+    axis_values = (
+        range(1, reference_date.days_in_month + 1)
+        if axis_kind == "day"
+        else range(1, 13)
+    )
+    date_part = period_rows["date"].dt.day if axis_kind == "day" else period_rows["date"].dt.month
+    values = period_rows.groupby(date_part)[trend_source_column].sum().reindex(axis_values)
+
+    # 판매가 없는 유효 기간은 0, 아직 도래하지 않았거나 존재하지 않는 날짜는 공백으로 둡니다.
+    valid_until = end.day if axis_kind == "day" else end.month
+    values.loc[values.index <= valid_until] = values.loc[values.index <= valid_until].fillna(0)
+    values.loc[values.index > valid_until] = np.nan
+    if trend_metric_label == "매출액":
+        values = values / 1_000_000
+    return pd.DataFrame({"axis_value": list(axis_values), "구분": series_name, "value": values.values})
+
+
+if frequency == "월간":
+    trend = pd.concat(
+        [
+            comparison_trend_series(
+                current_year_ytd_start, reference_date, "month", f"당해 ({reference_date.year}년)"
+            ),
+            comparison_trend_series(
+                previous_year_ytd_start, previous_year_end, "month", f"전년 ({previous_year_end.year}년)"
+            ),
+        ],
+        ignore_index=True,
+    )
+    trend_ticks = list(range(1, 13))
+    trend_tick_text = [f"{month}월" for month in trend_ticks]
+    trend_axis_label = "월"
+else:
+    trend = pd.concat(
+        [
+            comparison_trend_series(current_month_start, reference_date, "day", "당월"),
+            comparison_trend_series(previous_month_start, previous_month_end, "day", "전월"),
+            comparison_trend_series(previous_year_month_start, previous_year_end, "day", "전년 동월"),
+        ],
+        ignore_index=True,
+    )
+    trend_ticks = list(range(1, reference_date.days_in_month + 1))
+    trend_tick_text = [f"{day}일" for day in trend_ticks]
+    trend_axis_label = "일"
+
+trend_fig = px.line(
     trend,
-    x="date",
-    y=trend_column,
-    color_discrete_sequence=[COLORS["primary"]],
-    labels=trend_labels,
+    x="axis_value",
+    y="value",
+    color="구분",
+    symbol="구분",
+    line_dash="구분",
+    markers=True,
+    color_discrete_sequence=["#0B3D91", "#2F80ED", "#7B61FF"],
+    symbol_sequence=["circle", "square", "diamond"],
+    line_dash_sequence=["solid", "dash", "dot"],
+    labels={"axis_value": trend_axis_label, "value": trend_value_label},
 )
-trend_fig.update_traces(marker_line_width=0, opacity=.9)
-trend_fig.update_layout(hovermode="x unified")
-tick_step = max(1, int(np.ceil(len(trend) / 12)))
-trend_tick_values = trend["date"].iloc[::tick_step].tolist()
-if trend_tick_values and trend_tick_values[-1] != trend["date"].iloc[-1]:
-    trend_tick_values.append(trend["date"].iloc[-1])
+trend_fig.update_traces(
+    connectgaps=False,
+    line_width=3,
+    marker_size=8,
+    marker_line_width=1.5,
+    marker_line_color="#FFFFFF",
+    hovertemplate=f"%{{fullData.name}}<br>{trend_axis_label} %{{x}}<br>{trend_value_label} %{{y:,.1f}}<extra></extra>",
+)
+trend_fig.update_layout(hovermode="x unified", legend_title_text="비교 기간")
 trend_fig.update_xaxes(
     tickmode="array",
-    tickvals=trend_tick_values,
-    ticktext=[pd.Timestamp(value).strftime("%Y-%m-%d") for value in trend_tick_values],
+    tickvals=trend_ticks,
+    ticktext=trend_tick_text,
     tickangle=0,
+    range=[0.5, len(trend_ticks) + 0.5],
 )
 st.plotly_chart(style_figure(trend_fig, 390), use_container_width=True)
 
-channel_summary = filtered.groupby("channel", as_index=False).agg(
-    sales=("sales", "sum"),
-    quantity=("quantity", "sum"),
+# 채널별 매출 흐름을 동일한 일/월 축에서 비교합니다.
+section_title("채널별 매출 추이", "백만원")
+if frequency == "월간":
+    channel_period_start = current_year_ytd_start
+    channel_axis_values = list(range(1, 13))
+    channel_axis_text = [f"{month}월" for month in channel_axis_values]
+    channel_axis_label = "월"
+    channel_date_part = "month"
+    channel_valid_until = reference_date.month
+else:
+    channel_period_start = current_month_start
+    channel_axis_values = list(range(1, reference_date.days_in_month + 1))
+    channel_axis_text = [f"{day}일" for day in channel_axis_values]
+    channel_axis_label = "일"
+    channel_date_part = "day"
+    channel_valid_until = reference_date.day
+
+channel_period_rows = detail_history[
+    detail_history["date"].between(channel_period_start, reference_date)
+].copy()
+channel_period_rows["axis_value"] = getattr(channel_period_rows["date"].dt, channel_date_part)
+channel_trend_values = (
+    channel_period_rows.groupby(["channel", "axis_value"])["sales"].sum() / 1_000_000
 )
-channel_summary["sales_million"] = (channel_summary["sales"] / 1_000_000).round(1)
-channel_sales_total = channel_summary["sales"].sum()
-channel_summary["sales_share"] = np.where(
-    channel_sales_total == 0,
-    0,
-    channel_summary["sales"] / channel_sales_total * 100,
-).round(1)
-left, right = st.columns(2)
-with left:
-    section_title("채널별 매출 집계", "백만원, %")
-    channel_sales_fig = px.bar(
-        channel_summary.sort_values("sales"),
-        x="sales_million",
-        y="channel",
-        orientation="h",
-        color="channel",
-        custom_data=["sales_share", "quantity"],
-        color_discrete_sequence=[
-            COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]
-        ],
-        labels={"sales_million": "매출액", "sales_share": "매출 비중", "quantity": "판매수량", "channel": "채널"},
+channel_trend_parts = []
+for channel_name in selected_channels:
+    channel_values = channel_trend_values.get(channel_name, pd.Series(dtype=float)).reindex(
+        channel_axis_values
     )
-    channel_sales_fig.update_traces(
-        texttemplate="%{x:,.1f} (%{customdata[0]:.1f}%)",
-        textposition="outside",
-        cliponaxis=False,
-        hovertemplate=(
-            "Channel1_1: %{y}<br>"
-            "매출액: %{x:,.1f}백만원<br>"
-            "매출 비중: %{customdata[0]:.1f}%<br>"
-            "판매수량: %{customdata[1]:,.1f} EA<extra></extra>"
-        ),
+    channel_values.loc[channel_values.index <= channel_valid_until] = (
+        channel_values.loc[channel_values.index <= channel_valid_until].fillna(0)
     )
-    channel_sales_fig = style_figure(channel_sales_fig, 360)
-    channel_sales_fig.update_layout(showlegend=False, margin=dict(l=18, r=90, t=58, b=16))
-    channel_sales_fig.update_yaxes(categoryorder="total ascending")
-    st.plotly_chart(channel_sales_fig, use_container_width=True)
-with right:
-    section_title("채널별 판매수량 집계", "EA")
-    channel_quantity_fig = px.bar(
-        channel_summary.sort_values("quantity"), x="quantity", y="channel", orientation="h", color="channel",
-        color_discrete_sequence=[COLORS["primary"], COLORS["secondary"], COLORS["accent"], COLORS["success"]],
-        labels={"quantity": "판매수량", "channel": "채널"},
-    )
-    channel_quantity_fig.update_traces(
-        texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False
-    )
-    channel_quantity_fig = style_figure(channel_quantity_fig, 360)
-    channel_quantity_fig.update_layout(showlegend=False, margin=dict(l=18, r=90, t=58, b=16))
-    channel_quantity_fig.update_yaxes(categoryorder="total ascending")
-    st.plotly_chart(channel_quantity_fig, use_container_width=True)
+    channel_values.loc[channel_values.index > channel_valid_until] = np.nan
+    channel_trend_parts.append(pd.DataFrame({
+        "axis_value": channel_axis_values,
+        "Channel1_1": channel_name,
+        "sales_million": channel_values.values,
+    }))
+channel_trend = pd.concat(channel_trend_parts, ignore_index=True)
+
+channel_trend_fig = px.line(
+    channel_trend,
+    x="axis_value",
+    y="sales_million",
+    color="Channel1_1",
+    symbol="Channel1_1",
+    line_dash="Channel1_1",
+    markers=True,
+    color_discrete_map=CHANNEL_COLOR_MAP,
+    symbol_sequence=[
+        "circle", "square", "diamond", "triangle-up",
+        "cross", "star", "hexagon",
+    ],
+    line_dash_sequence=[
+        "solid", "dash", "dot", "dashdot",
+        "longdash", "longdashdot", "solid",
+    ],
+    labels={
+        "axis_value": channel_axis_label,
+        "sales_million": "매출액(백만원)",
+        "Channel1_1": "채널",
+    },
+)
+channel_trend_fig.update_traces(
+    connectgaps=False,
+    line_width=3,
+    marker_size=8,
+    marker_line_width=1.5,
+    marker_line_color="#FFFFFF",
+    hovertemplate=(
+        f"%{{fullData.name}}<br>{channel_axis_label} %{{x}}"
+        "<br>매출액(백만원) %{y:,.1f}<extra></extra>"
+    ),
+)
+channel_trend_fig.update_layout(hovermode="x unified", legend_title_text="채널")
+channel_trend_fig.update_xaxes(
+    tickmode="array",
+    tickvals=channel_axis_values,
+    ticktext=channel_axis_text,
+    tickangle=0,
+    range=[0.5, len(channel_axis_values) + 0.5],
+)
+channel_trend_fig = style_figure(channel_trend_fig, 390)
+channel_trend_fig.update_layout(margin=dict(l=18, r=18, t=48, b=0))
+st.plotly_chart(channel_trend_fig, use_container_width=True)
+
+# 상세 실적은 아래에서 계산하지만 판매 추이 바로 다음 위치에 렌더링합니다.
+account_detail_placeholder = st.container()
 
 section_title("채널별 매출액 TOP 10 제품", "백만원")
 channel_product = filtered.groupby(["channel", "product_name"], as_index=False)["sales"].sum()
@@ -2305,32 +2522,129 @@ category_product_fig = px.bar(
 )
 st.plotly_chart(style_figure(category_product_fig, 420), use_container_width=True)
 
-reference_date = end_date.normalize()
-current_month_start = reference_date.replace(day=1)
-_, previous_month_end = comparison_period(reference_date, reference_date, "월간")
-previous_month_start = previous_month_end.replace(day=1)
-previous_year_end = reference_date - pd.DateOffset(years=1)
-if reference_date.is_month_end:
-    previous_year_end = previous_year_end + pd.offsets.MonthEnd(0)
-previous_year_start = previous_year_end.replace(day=1)
-
-# 조회 기간과 별개로 비교 기간 전체가 필요하므로 날짜를 제외한 현재 필터만 적용합니다.
-detail_history = data[
-    data["channel"].isin(selected_channels)
-    & data["channel_detail"].isin(selected_channel_details)
-    & data["account_name"].isin(selected_accounts)
-    & data["category_large"].isin(selected_large)
-    & data["category_middle"].isin(selected_middle)
-    & data["category_small"].isin(selected_small)
-    & data["category_detail"].isin(selected_detail)
-].copy()
-
 metric_specs = {
     "daily_sales": detail_history["date"].eq(reference_date),
     "current_month_sales": detail_history["date"].between(current_month_start, reference_date),
+    "current_year_ytd_sales": detail_history["date"].between(current_year_ytd_start, reference_date),
     "previous_month_sales": detail_history["date"].between(previous_month_start, previous_month_end),
-    "previous_year_sales": detail_history["date"].between(previous_year_start, previous_year_end),
+    "previous_year_ytd_sales": detail_history["date"].between(previous_year_ytd_start, previous_year_end),
+    "previous_year_month_sales": detail_history["date"].between(previous_year_month_start, previous_year_end),
 }
+channel_metrics = None
+for metric_name, metric_mask in metric_specs.items():
+    metric_values = (
+        detail_history.loc[metric_mask]
+        .groupby("channel")["sales"]
+        .sum()
+        .rename(metric_name)
+    )
+    channel_metrics = metric_values.to_frame() if channel_metrics is None else channel_metrics.join(metric_values, how="outer")
+
+channel_metrics = channel_metrics.fillna(0).reset_index()
+channel_metrics["previous_month_change_rate"] = np.where(
+    channel_metrics["previous_month_sales"] == 0,
+    np.nan,
+    (channel_metrics["current_month_sales"] - channel_metrics["previous_month_sales"])
+    / channel_metrics["previous_month_sales"].abs() * 100,
+)
+channel_metrics["previous_year_month_change_rate"] = np.where(
+    channel_metrics["previous_year_month_sales"] == 0,
+    np.nan,
+    (channel_metrics["current_month_sales"] - channel_metrics["previous_year_month_sales"])
+    / channel_metrics["previous_year_month_sales"].abs() * 100,
+)
+channel_metrics["previous_year_ytd_change_rate"] = np.where(
+    channel_metrics["previous_year_ytd_sales"] == 0,
+    np.nan,
+    (channel_metrics["current_year_ytd_sales"] - channel_metrics["previous_year_ytd_sales"])
+    / channel_metrics["previous_year_ytd_sales"].abs() * 100,
+)
+value_columns = list(metric_specs)
+detail_rows: list[dict] = []
+
+total_values = channel_metrics[value_columns].sum()
+detail_rows.append({
+    "Channel1_1": "Total sum",
+    **{column: total_values[column] / 1_000_000 for column in value_columns},
+})
+detail_rows[0]["previous_month_change_rate"] = (
+    np.nan if total_values["previous_month_sales"] == 0 else
+    (total_values["current_month_sales"] - total_values["previous_month_sales"])
+    / abs(total_values["previous_month_sales"]) * 100
+)
+detail_rows[0]["previous_year_month_change_rate"] = (
+    np.nan if total_values["previous_year_month_sales"] == 0 else
+    (total_values["current_month_sales"] - total_values["previous_year_month_sales"])
+    / abs(total_values["previous_year_month_sales"]) * 100
+)
+detail_rows[0]["previous_year_ytd_change_rate"] = (
+    np.nan if total_values["previous_year_ytd_sales"] == 0 else
+    (total_values["current_year_ytd_sales"] - total_values["previous_year_ytd_sales"])
+    / abs(total_values["previous_year_ytd_sales"]) * 100
+)
+
+for _, channel_row in channel_metrics.sort_values("current_month_sales", ascending=False).iterrows():
+    detail_rows.append({
+        "Channel1_1": channel_row["channel"],
+        **{column: channel_row[column] / 1_000_000 for column in value_columns},
+        "previous_month_change_rate": channel_row["previous_month_change_rate"],
+        "previous_year_month_change_rate": channel_row["previous_year_month_change_rate"],
+        "previous_year_ytd_change_rate": channel_row["previous_year_ytd_change_rate"],
+    })
+
+daily_label = f"당일({reference_date:%y/%m/%d})"
+current_month_label = (
+    f"당월({reference_date.month}월)"
+    if frequency == "월간" else f"당일 누계({reference_date.month}월)"
+)
+current_year_ytd_label = f"당해 누계({reference_date.year}년)"
+previous_month_label = f"전월 누계({previous_month_end.month}월)"
+previous_month_change_label = "전월 누계 증감률(당월 대비)"
+previous_year_ytd_label = f"전년 누계({previous_year_end:%y년})"
+previous_year_month_label = (
+    f"전년 동월({previous_year_end:%y년 %m월})"
+    if frequency == "월간" else f"전년 동월 누계({previous_year_end:%y년 %m월})"
+)
+previous_year_change_label = (
+    "전년 동월 증감률(당월 대비)"
+    if frequency == "월간" else "전년동월 누계 증감률(당월 대비)"
+)
+previous_year_ytd_change_label = "전년 누계 증감률(당해 대비)"
+detail = pd.DataFrame(detail_rows).rename(columns={
+    "daily_sales": daily_label,
+    "current_month_sales": current_month_label,
+    "current_year_ytd_sales": current_year_ytd_label,
+    "previous_month_sales": previous_month_label,
+    "previous_month_change_rate": previous_month_change_label,
+    "previous_year_ytd_sales": previous_year_ytd_label,
+    "previous_year_month_sales": previous_year_month_label,
+    "previous_year_month_change_rate": previous_year_change_label,
+    "previous_year_ytd_change_rate": previous_year_ytd_change_label,
+})
+if frequency == "월간":
+    pivot_metric_columns = [
+        current_month_label,
+        current_year_ytd_label,
+        previous_month_label,
+        previous_month_change_label,
+        previous_year_month_label,
+        previous_year_change_label,
+        previous_year_ytd_label,
+        previous_year_ytd_change_label,
+    ]
+else:
+    pivot_metric_columns = [
+        daily_label,
+        current_month_label,
+        previous_month_label,
+        previous_month_change_label,
+        previous_year_month_label,
+        previous_year_change_label,
+    ]
+detail = detail[["Channel1_1", *pivot_metric_columns]]
+detail = detail.rename(columns={"Channel1_1": "채널"})
+
+# 기존 Channel1_1 → Channel1_2 → 매출처 구조는 접이식 상세표로 유지합니다.
 account_metrics = None
 for metric_name, metric_mask in metric_specs.items():
     metric_values = (
@@ -2339,85 +2653,86 @@ for metric_name, metric_mask in metric_specs.items():
         .sum()
         .rename(metric_name)
     )
-    account_metrics = metric_values.to_frame() if account_metrics is None else account_metrics.join(metric_values, how="outer")
-
-account_metrics = account_metrics.fillna(0).reset_index()
-value_columns = list(metric_specs)
-detail_rows: list[dict] = []
-
-total_values = account_metrics[value_columns].sum()
-detail_rows.append({
-    "Channel1_1": "Total sum",
-    "Channel1_2": "",
-    "매출처": "",
-    **{column: total_values[column] / 1_000_000 for column in value_columns},
-})
-
-channel_level_1_order = (
-    account_metrics.groupby("channel")["current_month_sales"]
-    .sum()
-    .sort_values(ascending=False)
-    .index
-)
-for channel_level_1 in channel_level_1_order:
-    level_1_accounts = account_metrics.loc[
-        account_metrics["channel"] == channel_level_1
-    ].copy()
-    level_1_values = level_1_accounts[value_columns].sum()
-    detail_rows.append({
-        "Channel1_1": channel_level_1,
-        "Channel1_2": "SUM",
-        "매출처": "",
-        **{column: level_1_values[column] / 1_000_000 for column in value_columns},
-    })
-
-    channel_level_2_order = (
-        level_1_accounts.groupby("channel_detail")["current_month_sales"]
-        .sum()
-        .sort_values(ascending=False)
-        .index
+    account_metrics = (
+        metric_values.to_frame()
+        if account_metrics is None
+        else account_metrics.join(metric_values, how="outer")
     )
-    for channel_level_2 in channel_level_2_order:
-        level_2_accounts = level_1_accounts.loc[
-            level_1_accounts["channel_detail"] == channel_level_2
-        ].copy()
-        level_2_values = level_2_accounts[value_columns].sum()
-        detail_rows.append({
-            "Channel1_1": "",
-            "Channel1_2": channel_level_2,
-            "매출처": "SUM",
-            **{column: level_2_values[column] / 1_000_000 for column in value_columns},
-        })
+account_metrics = account_metrics.fillna(0).reset_index()
 
-        ranked_accounts = level_2_accounts.sort_values("current_month_sales", ascending=False)
-        for _, account_row in ranked_accounts.iterrows():
-            detail_rows.append({
-                "Channel1_1": "",
-                "Channel1_2": "",
-                "매출처": account_row["account_name"],
-                **{column: account_row[column] / 1_000_000 for column in value_columns},
-            })
+def period_change_rate(current_value: float, comparison_value: float) -> float:
+    return (
+        np.nan if comparison_value == 0
+        else (current_value - comparison_value) / abs(comparison_value) * 100
+    )
 
-daily_label = f"일매출({reference_date:%y/%m/%d})"
-current_month_label = f"당월누적({reference_date.month}월)"
-previous_month_label = f"전월누적({previous_month_end.month}월)"
-previous_year_label = f"전년동월누적({previous_year_end:%y년} {previous_year_end.month}월)"
-account_display_label = "매출처"
-detail = pd.DataFrame(detail_rows).rename(columns={
-    "매출처": account_display_label,
+def account_pivot_row(
+    channel_value: str,
+    channel_detail_value: str,
+    account_value: str,
+    values: pd.Series,
+) -> dict:
+    return {
+        "Channel1_1": channel_value,
+        "Channel1_2": channel_detail_value,
+        "매출처": account_value,
+        **{column: values[column] / 1_000_000 for column in value_columns},
+        "previous_month_change_rate": period_change_rate(
+            values["current_month_sales"], values["previous_month_sales"]
+        ),
+        "previous_year_month_change_rate": period_change_rate(
+            values["current_month_sales"], values["previous_year_month_sales"]
+        ),
+        "previous_year_ytd_change_rate": period_change_rate(
+            values["current_year_ytd_sales"], values["previous_year_ytd_sales"]
+        ),
+    }
+
+account_detail_rows = [account_pivot_row("Total sum", "", "", account_metrics[value_columns].sum())]
+channel_order = (
+    account_metrics.groupby("channel")["current_month_sales"].sum()
+    .sort_values(ascending=False).index
+)
+for channel_name in channel_order:
+    level_1 = account_metrics.loc[account_metrics["channel"] == channel_name]
+    account_detail_rows.append(
+        account_pivot_row(channel_name, "SUM", "", level_1[value_columns].sum())
+    )
+    channel_detail_order = (
+        level_1.groupby("channel_detail")["current_month_sales"].sum()
+        .sort_values(ascending=False).index
+    )
+    for channel_detail_name in channel_detail_order:
+        level_2 = level_1.loc[level_1["channel_detail"] == channel_detail_name]
+        account_detail_rows.append(
+            account_pivot_row("", channel_detail_name, "SUM", level_2[value_columns].sum())
+        )
+        for _, account_row in level_2.sort_values("current_month_sales", ascending=False).iterrows():
+            account_detail_rows.append(
+                account_pivot_row("", "", account_row["account_name"], account_row)
+            )
+
+account_detail = pd.DataFrame(account_detail_rows).rename(columns={
     "daily_sales": daily_label,
     "current_month_sales": current_month_label,
+    "current_year_ytd_sales": current_year_ytd_label,
     "previous_month_sales": previous_month_label,
-    "previous_year_sales": previous_year_label,
+    "previous_month_change_rate": previous_month_change_label,
+    "previous_year_ytd_sales": previous_year_ytd_label,
+    "previous_year_month_sales": previous_year_month_label,
+    "previous_year_month_change_rate": previous_year_change_label,
+    "previous_year_ytd_change_rate": previous_year_ytd_change_label,
 })
-detail = detail[["Channel1_1", "Channel1_2", account_display_label, daily_label, current_month_label, previous_month_label, previous_year_label]]
+account_detail = account_detail[[
+    "Channel1_1", "Channel1_2", "매출처", *pivot_metric_columns,
+]]
+account_detail = account_detail.rename(columns={
+    "Channel1_1": "채널",
+    "Channel1_2": "상세 채널",
+})
 
 def style_pivot_row(row: pd.Series) -> list[str]:
-    is_summary = (
-        row["Channel1_1"] == "Total sum"
-        or row["Channel1_2"] == "SUM"
-        or row[account_display_label] == "SUM"
-    )
+    is_summary = row["채널"] == "Total sum"
     style = "font-weight: 700; background-color: #EAF2FA" if is_summary else ""
     return [style] * len(row)
 
@@ -2427,31 +2742,59 @@ def highlight_negative_daily(value: object) -> str:
         return "color: #B91C1C; background-color: #FEE2E2; font-weight: 700"
     return ""
 
-styled_detail = (
-    detail.style
-    .apply(style_pivot_row, axis=1)
-    .map(highlight_negative_daily, subset=[daily_label])
-)
+styled_detail = detail.style.apply(style_pivot_row, axis=1)
+if daily_label in detail.columns:
+    styled_detail = styled_detail.map(highlight_negative_daily, subset=[daily_label])
 
-csv = detail.to_csv(index=False).encode("utf-8-sig")
+def style_account_pivot_row(row: pd.Series) -> list[str]:
+    is_summary = (
+        row["채널"] == "Total sum"
+        or row["상세 채널"] == "SUM"
+        or row["매출처"] == "SUM"
+    )
+    style = "font-weight: 700; background-color: #EAF2FA" if is_summary else ""
+    return [style] * len(row)
+
+styled_account_detail = account_detail.style.apply(style_account_pivot_row, axis=1)
+if daily_label in account_detail.columns:
+    styled_account_detail = styled_account_detail.map(
+        highlight_negative_daily, subset=[daily_label]
+    )
+
+account_csv = account_detail.to_csv(index=False).encode("utf-8-sig")
+number_columns = {
+    column: st.column_config.NumberColumn(
+        format="%,.1f%%" if "증감률" in column else "%,.1f"
+    )
+    for column in pivot_metric_columns
+}
 with account_detail_placeholder:
-    section_title("매출처 상세 실적", "백만원")
-    st.markdown('<div class="section-sub">조회 종료일 기준 Channel1_1 → Channel1_2 → 매출처 순서로 매출을 비교합니다. (단위: 백만원)</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="text-align:right; color:#617B98; font-size:.78rem; margin:-.35rem .2rem .2rem 0;">(단위: 백만원, %)</div>',
+        unsafe_allow_html=True,
+    )
     st.dataframe(
         styled_detail,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            daily_label: st.column_config.NumberColumn(format="%,.1f"),
-            current_month_label: st.column_config.NumberColumn(format="%,.1f"),
-            previous_month_label: st.column_config.NumberColumn(format="%,.1f"),
-            previous_year_label: st.column_config.NumberColumn(format="%,.1f"),
-        },
+        column_config=number_columns,
     )
-    st.download_button(
-        "매출처 실적 CSV 다운로드",
-        csv,
-        f"dertte_account_sales_{date.today():%Y%m%d}.csv",
-        "text/csv",
-    )
+    with st.expander("매출처 상세보기", expanded=False):
+        section_title("매출처 상세 실적", "백만원, %")
+        st.markdown(
+            '<div class="section-sub">Channel1_1 → Channel1_2 → 매출처 순서의 상세 피벗입니다.</div>',
+            unsafe_allow_html=True,
+        )
+        st.dataframe(
+            styled_account_detail,
+            use_container_width=True,
+            hide_index=True,
+            column_config=number_columns,
+        )
+        st.download_button(
+            "매출처 실적 CSV 다운로드",
+            account_csv,
+            f"dertte_account_sales_{date.today():%Y%m%d}.csv",
+            "text/csv",
+        )
 st.caption("© 데르뜨 · 매출액과 판매수량은 선택한 기간 및 필터 기준입니다.")
