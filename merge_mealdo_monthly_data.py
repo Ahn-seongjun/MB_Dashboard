@@ -87,6 +87,7 @@ def main() -> int:
 
     collected: dict[str, list[dict[str, str]]] = {key: [] for key in DATASETS}
     expected_headers: dict[str, list[str]] = {}
+    source_months: dict[str, list[str]] = {key: [] for key in DATASETS}
 
     for month_dir in month_dirs:
         monthly_files: dict[str, tuple[Path, list[str], list[dict[str, str]]]] = {}
@@ -97,10 +98,6 @@ def main() -> int:
                 label = DATASETS[dataset]["label"]
                 raise ValueError(f"{month_dir.name} 폴더에 {label} CSV가 2개 이상입니다.")
             monthly_files[dataset] = (csv_path, headers, rows)
-
-        missing = [DATASETS[key]["label"] for key in DATASETS if key not in monthly_files]
-        if missing:
-            raise ValueError(f"{month_dir.name} 폴더에 파일이 없습니다: {', '.join(missing)}")
 
         expected_month = month_dir.name.replace("_", "-")
         for dataset, (csv_path, headers, rows) in monthly_files.items():
@@ -119,9 +116,17 @@ def main() -> int:
                         f"({row_date:%Y-%m-%d})"
                     )
             collected[dataset].extend(rows)
+            source_months[dataset].append(month_dir.name)
 
     for dataset, spec in DATASETS.items():
         output_path = DATA_DIR / str(spec["output"])
+        if dataset not in expected_headers:
+            if output_path.exists():
+                print(f"[유지] {spec['label']}: 월별 원본 없음, 기존 통합 파일 유지")
+                continue
+            raise ValueError(
+                f"{spec['label']} 월별 원본과 기존 통합 파일이 모두 없습니다: {output_path.name}"
+            )
         temp_path = output_path.with_suffix(".tmp")
         headers = expected_headers[dataset]
         rows = collected[dataset]
@@ -132,7 +137,10 @@ def main() -> int:
                 writer.writeheader()
                 writer.writerows(rows)
             if output_path.exists() and filecmp.cmp(temp_path, output_path, shallow=False):
-                print(f"[유지] {spec['label']}: 기존 통합 파일과 동일 ({len(rows):,}행)")
+                print(
+                    f"[유지] {spec['label']}: {len(source_months[dataset]):,}개월, "
+                    f"기존 통합 파일과 동일 ({len(rows):,}행)"
+                )
                 continue
 
             for attempt in range(20):
@@ -146,11 +154,14 @@ def main() -> int:
                             "열려 있는 Excel을 닫고 다시 실행해 주세요."
                         ) from exc
                     time.sleep(0.25)
-            print(f"[완료] {spec['label']}: {len(rows):,}행 -> {output_path.name}")
+            print(
+                f"[완료] {spec['label']}: {len(source_months[dataset]):,}개월, "
+                f"{len(rows):,}행 -> {output_path.name}"
+            )
         finally:
             temp_path.unlink(missing_ok=True)
 
-    print(f"월별 폴더 {len(month_dirs):,}개를 대시보드용 CSV 3개로 병합했습니다.")
+    print("밀도 매출·밀도 폐기·폴바셋 매출을 각각 독립적으로 병합했습니다.")
     return 0
 
 
