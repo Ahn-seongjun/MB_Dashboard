@@ -244,6 +244,67 @@ def million_won_integer(value: float) -> str:
     return f"{value / 1_000_000:,.0f}백만원"
 
 
+@st.dialog("업데이트 정보")
+def show_update_info_dialog(
+    brand: str,
+    data_start: date,
+    data_end: date,
+    source_paths: list[Path],
+) -> None:
+    """브랜드별 데이터 갱신 정보와 최근 패치노트를 중앙 모달에 표시합니다."""
+    project_dir = Path(__file__).resolve().parent
+    existing_paths = [path for path in source_paths if path.exists()]
+    latest_file_time = (
+        pd.Timestamp.fromtimestamp(max(path.stat().st_mtime for path in existing_paths))
+        if existing_paths else None
+    )
+
+    st.markdown(f"### {brand}")
+    st.markdown(f"**데이터 기준일** · {data_end:%Y.%m.%d}")
+    st.caption(f"수록 기간: {data_start:%Y.%m.%d} — {data_end:%Y.%m.%d}")
+    if latest_file_time is not None:
+        st.caption(f"파일 갱신: {latest_file_time:%Y.%m.%d %H:%M}")
+
+    st.divider()
+    update_log_path = project_dir / "data" / "data_update_log.csv"
+    if update_log_path.exists():
+        try:
+            update_log = pd.read_csv(update_log_path, encoding="utf-8-sig")
+            brand_log = update_log.loc[update_log["brand"].astype(str).eq(brand)].tail(3)
+            if not brand_log.empty:
+                st.markdown("**최근 데이터 업데이트**")
+                for row in brand_log.iloc[::-1].itertuples(index=False):
+                    st.caption(f"• {row.updated_at} · {row.note}")
+        except (OSError, UnicodeDecodeError, pd.errors.ParserError, KeyError):
+            st.caption("데이터 업데이트 이력을 읽을 수 없습니다.")
+
+    changelog_path = project_dir / "CHANGELOG.md"
+    if changelog_path.exists():
+        try:
+            recent_changes = [
+                line[2:].strip()
+                for line in changelog_path.read_text(encoding="utf-8").splitlines()
+                if line.startswith("- ")
+            ][:5]
+            if recent_changes:
+                st.markdown("**최근 패치노트**")
+                for change in recent_changes:
+                    st.caption(f"• {change}")
+        except (OSError, UnicodeDecodeError):
+            st.caption("패치노트를 읽을 수 없습니다.")
+
+
+def render_sidebar_update_info(
+    brand: str,
+    data_start: date,
+    data_end: date,
+    source_paths: list[Path],
+) -> None:
+    """사이드바 버튼으로 업데이트 정보 모달을 엽니다."""
+    if st.button("업데이트 정보", key=f"update_info_{brand}", use_container_width=True):
+        show_update_info_dialog(brand, data_start, data_end, source_paths)
+
+
 def percent_change(current: float, previous: float) -> float:
     return 0.0 if previous == 0 else (current - previous) / previous * 100
 
@@ -2030,6 +2091,15 @@ if selected_brand == "밀도":
         st.markdown("---")
         st.markdown('<span class="status-pill">● CSV 데이터</span>', unsafe_allow_html=True)
         st.caption(f"통합 파일 {len(store_data_version):,}개 · 최종 데이터 {max_store_date:%Y.%m.%d}")
+        update_source_paths = (
+            store_csv_paths[:2] if is_mealdo_page else [store_csv_paths[2]]
+        )
+        render_sidebar_update_info(
+            "밀도" if is_mealdo_page else "폴바셋",
+            min_store_date,
+            max_store_date,
+            update_source_paths,
+        )
 
     if len(selected_store_dates) != 2:
         st.info("조회 시작일과 종료일을 선택해 주세요.")
@@ -2311,6 +2381,12 @@ with st.sidebar:
     if unmatched_account_count:
         st.caption(f"⚠ 미매핑 매출처 {unmatched_account_count:,}개")
     st.caption(f"최종 데이터: {max_date:%Y.%m.%d}")
+    render_sidebar_update_info(
+        "데르뜨",
+        min_date,
+        max_date,
+        csv_paths,
+    )
 
 
 start_date, end_date = map(pd.Timestamp, selected_dates)
