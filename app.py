@@ -281,15 +281,30 @@ def show_update_info_dialog(
     changelog_path = project_dir / "CHANGELOG.md"
     if changelog_path.exists():
         try:
-            recent_changes = [
-                line[2:].strip()
-                for line in changelog_path.read_text(encoding="utf-8").splitlines()
-                if line.startswith("- ")
-            ][:5]
+            changelog_text = changelog_path.read_text(encoding="utf-8")
+            recent_changes: list[tuple[str, str]] = []
+            change_date = ""
+            for line in changelog_text.splitlines():
+                date_heading = re.fullmatch(r"## (\d{4})-(\d{2})-(\d{2})", line.strip())
+                if date_heading:
+                    change_date = (
+                        f"{date_heading.group(1)}년 {date_heading.group(2)}월 "
+                        f"{date_heading.group(3)}일"
+                    )
+                elif change_date and line.startswith("- "):
+                    recent_changes.append((change_date, line[2:].strip()))
             if recent_changes:
                 st.markdown("**최근 패치노트**")
-                for change in recent_changes:
-                    st.caption(f"• {change}")
+                for changed_at, change in recent_changes[:5]:
+                    st.caption(f"• {changed_at} · {change}")
+            st.download_button(
+                "패치노트 로그 다운로드",
+                changelog_text.encode("utf-8-sig"),
+                "dashboard_patch_notes.md",
+                "text/markdown",
+                key=f"download_changelog_{brand}",
+                use_container_width=True,
+            )
         except (OSError, UnicodeDecodeError):
             st.caption("패치노트를 읽을 수 없습니다.")
 
