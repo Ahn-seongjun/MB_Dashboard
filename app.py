@@ -46,6 +46,17 @@ CATEGORY_COLOR_MAP = {
     "원재료가공식품": "#8F9194",
     "기타": "#B8B9BB",
 }
+BREAD_PRIMARY = "#7A4E2D"
+BREAD_SECONDARY = "#A87347"
+BREAD_ACCENT = "#C99A6B"
+BREAD_CREAM = "#F7EBDD"
+BREAD_PALETTE = ["#6B4226", "#8B5E3C", "#A87347", "#C99A6B", "#DFC09D", "#F1E1CF"]
+BREAD_SCALE = [[0.0, "#FBF5EC"], [0.5, "#D9B58C"], [1.0, "#7A4E2D"]]
+PAUL_PRIMARY = "#8E1738"
+PAUL_DARK = "#241C1A"
+PAUL_SECONDARY = "#5B3835"
+PAUL_CREAM = "#F7F1EE"
+PAUL_SCALE = [[0.0, "#FAF5F3"], [0.5, "#C88796"], [1.0, "#7B102F"]]
 MEALDO_VAT_RATE = 0.10
 
 # 집계 로직 변경 시 값을 올리면 기존 Streamlit 데이터 캐시를 즉시 폐기합니다.
@@ -67,11 +78,25 @@ st.markdown(
         [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
             position: sticky; top: 3.75rem; z-index: 900;
             background: rgba(255, 255, 255, .97);
-            padding: .78rem .15rem .68rem;
-            margin: -.8rem -.15rem .7rem;
+            /* Streamlit wide 본문의 좌우 5rem 여백을 모두 상쇄해 헤더 띠를 전체 폭으로 확장 */
+            width: calc(100% + 10rem) !important;
+            min-width: calc(100% + 10rem) !important;
+            max-width: none !important;
+            box-sizing: border-box; overflow: visible;
+            padding: .78rem 5rem .68rem;
+            margin: -.8rem -5rem .7rem;
             border-bottom: 1px solid #DCE9F6;
             box-shadow: 0 8px 18px rgba(30, 64, 175, .06);
             backdrop-filter: blur(8px);
+        }
+        @media (max-width: 900px) {
+            [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_dertte),
+            [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
+                width: calc(100% + 2rem) !important;
+                min-width: calc(100% + 2rem) !important;
+                padding-left: 1rem; padding-right: 1rem;
+                margin-left: -1rem; margin-right: -1rem;
+            }
         }
         .st-key-sticky_dashboard_header_dertte .brand,
         .st-key-sticky_dashboard_header_mealdo .brand {
@@ -81,6 +106,21 @@ st.markdown(
         .st-key-sticky_dashboard_header_mealdo .brand-sub {
             font-size: .8rem; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
+        }
+        .st-key-sticky_dashboard_header_dertte .header-title-block,
+        .st-key-sticky_dashboard_header_mealdo .header-title-block {
+            min-height: 3.25rem; display: flex; flex-direction: column;
+            justify-content: center;
+        }
+        .st-key-sticky_dashboard_header_dertte .header-title-block .brand-sub,
+        .st-key-sticky_dashboard_header_mealdo .header-title-block .brand-sub {
+            margin-top: .12rem; line-height: 1.2;
+        }
+        /* 타이틀·조회기간·집계버튼이 들어 있는 최상위 행 전체를 헤더의 세로 중앙에 정렬 */
+        .st-key-sticky_dashboard_header_dertte [data-testid="stHorizontalBlock"]:has(.header-title-block),
+        .st-key-sticky_dashboard_header_mealdo [data-testid="stHorizontalBlock"]:has(.header-title-block) {
+            align-items: center !important;
+            transform: translateY(-.5rem);
         }
         .brand { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.04em; color: #143D75; }
         .brand-sub { color: #617B98; font-size: .9rem; margin-top: -.25rem; }
@@ -970,7 +1010,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
     product_sales["sales_million"] = (product_sales["sales"] / 1_000_000).round(1)
 
     cols = st.columns(4)
-    cols[0].metric("순매출", won(total_sales), help="부가세 포함 실매출 ÷ 1.1")
+    cols[0].metric("순매출", million_won(total_sales), help="부가세 포함 실매출 ÷ 1.1")
     cols[1].metric("판매수량", f"{total_quantity:,.0f} EA")
     cols[2].metric("운영 매장", f"{frame['store'].nunique():,}개 지점")
     cols[3].metric("판매 제품", f"{frame['product_name'].nunique():,}종")
@@ -979,7 +1019,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
     total_waste_amount = waste["waste_amount"].sum() if not waste.empty else 0
     waste_cols = st.columns(4)
     waste_cols[0].metric("폐기수량", f"{total_waste_quantity:,.0f} EA")
-    waste_cols[1].metric("폐기비용", won(total_waste_amount))
+    waste_cols[1].metric("폐기비용", million_won(total_waste_amount))
     waste_cols[2].metric("폐기율", f"{disposal_rate(total_quantity, total_waste_quantity):,.1f}%",
                          help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
     waste_cols[3].metric("폐기 제품", f"{waste['product_code'].nunique() if not waste.empty else 0:,}종")
@@ -988,7 +1028,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
     top_product = product_sales.nlargest(1, "sales").iloc[0]
     st.markdown(
         f'<div class="insight-box">선택 기간 순매출 1위 매장은 <b>{top_store["store"]}</b>이며 '
-        f'<b>{won(top_store["sales"])}</b>을 기록했습니다. 제품 순매출은 '
+        f'<b>{million_won(top_store["sales"])}</b>을 기록했습니다. 제품 순매출은 '
         f'<b>{top_product["product_name"]}</b>이 가장 높습니다.</div>', unsafe_allow_html=True,
     )
 
@@ -1021,7 +1061,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
             f'<b>{top_waste_store["store"]}</b>이며 폐기율은 '
             f'<b>{top_waste_store["waste_rate"]:,.1f}%</b>, 폐기수량은 '
             f'<b>{top_waste_store["waste_quantity"]:,.0f} EA</b>, 폐기비용은 '
-            f'<b>{won(top_waste_store["waste_amount"])}</b>입니다.</div>',
+            f'<b>{million_won(top_waste_store["waste_amount"])}</b>입니다.</div>',
             unsafe_allow_html=True,
         )
     else:
@@ -1035,14 +1075,14 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
     left, right = st.columns([1.25, 1])
     with left:
         section_title("일별 순매출 흐름", "백만원")
-        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[COLORS["primary"]],
+        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[BREAD_PRIMARY],
                      labels={"date": "일자", "sales_million": "순매출(백만원)"})
         st.plotly_chart(style_figure(fig, 370), use_container_width=True)
     with right:
         section_title("매장 순매출 TOP 10", "백만원")
         top_stores = store_sales.nlargest(10, "sales").sort_values("sales")
         fig = px.bar(top_stores, x="sales_million", y="store", orientation="h", color="sales_million",
-                     color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+                     color_continuous_scale=[[0, BREAD_CREAM], [1, BREAD_PRIMARY]],
                      labels={"sales_million": "순매출", "store": "매장명"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 370), use_container_width=True)
@@ -1052,7 +1092,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
         section_title("제품 순매출 TOP 10", "백만원, EA")
         top_products = product_sales.nlargest(10, "sales").sort_values("sales")
         fig = px.bar(top_products, x="sales_million", y="product_name", orientation="h", color="quantity",
-                     color_continuous_scale=[[0, "#D6E7F5"], [1, COLORS["secondary"]]],
+                     color_continuous_scale=[[0, BREAD_CREAM], [1, BREAD_SECONDARY]],
                      labels={"sales_million": "순매출", "product_name": "제품명", "quantity": "판매수량(EA)"})
         st.plotly_chart(style_figure(fig, 410), use_container_width=True)
     with right:
@@ -1060,7 +1100,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
         category = frame.groupby(["category_large", "category_middle"], as_index=False)["sales"].sum()
         category["sales_million"] = (category["sales"] / 1_000_000).round(1)
         fig = px.sunburst(category, path=["category_large", "category_middle"], values="sales_million", color="sales_million",
-                          color_continuous_scale=[[0, "#EAF2FA"], [1, COLORS["accent"]]], labels={"sales_million": "순매출(백만원)"})
+                          color_continuous_scale=[[0, BREAD_CREAM], [1, BREAD_ACCENT]], labels={"sales_million": "순매출(백만원)"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 410), use_container_width=True)
 
@@ -1070,7 +1110,7 @@ def render_mealdo_store_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) -> N
     heat = frame[frame["store"].isin(top_store_names) & frame["product_name"].isin(top_product_names)].pivot_table(
         index="store", columns="product_name", values="sales", aggfunc="sum", fill_value=0
     ).div(1_000_000).round(1)
-    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="Blues",
+    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale=BREAD_SCALE,
                          labels={"x": "제품", "y": "매장", "color": "순매출(백만원)"})
     st.plotly_chart(style_figure(heat_fig, 450), use_container_width=True)
 
@@ -1097,10 +1137,10 @@ def render_mealdo_store_sales_dashboard(frame: pd.DataFrame, previous: pd.DataFr
     top_store = store_summary.nlargest(1, "sales").iloc[0]
     growth_store_count = int((store_summary["sales"] > store_summary["previous_sales"]).sum()) if has_previous else 0
     cols = st.columns(4)
-    cols[0].metric("총 순매출", won(total_sales), help="부가세 포함 실매출 ÷ 1.1")
-    cols[1].metric("매장당 평균 순매출", won(store_summary["sales"].mean()))
+    cols[0].metric("총 순매출", million_won(total_sales), help="부가세 포함 실매출 ÷ 1.1")
+    cols[1].metric("매장당 평균 순매출", million_won(store_summary["sales"].mean()))
     cols[2].metric(
-        "최고 매장 순매출", won(top_store["sales"]), top_store["store"],
+        "최고 매장 순매출", million_won(top_store["sales"]), top_store["store"],
         delta_color="off", help=f"순매출 1위 매장: {top_store['store']}",
     )
     cols[3].metric(
@@ -1117,7 +1157,7 @@ def render_mealdo_store_sales_dashboard(frame: pd.DataFrame, previous: pd.DataFr
             custom_data=["sales_share", "quantity"],
             labels={"sales_million": "순매출액", "store": "매장명", "sales_share": "순매출 비중",
                     "quantity": "판매수량(EA)"},
-            color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+            color_continuous_scale=[[0, BREAD_CREAM], [1, BREAD_PRIMARY]],
         )
         rank_fig.update_traces(
             texttemplate="%{x:,.1f} (%{customdata[0]:.1f}%)", textposition="outside", cliponaxis=False,
@@ -1135,7 +1175,7 @@ def render_mealdo_store_sales_dashboard(frame: pd.DataFrame, previous: pd.DataFr
             change_fig = px.bar(
                 change, x="change_million", y="store", orientation="h", color="direction",
                 labels={"change_million": "순매출 증감액", "store": "매장명", "direction": "구분"},
-                color_discrete_map={"증가": COLORS["primary"], "감소": "#D95C5C"},
+                color_discrete_map={"증가": BREAD_PRIMARY, "감소": "#D95C5C"},
             )
             change_fig.update_traces(texttemplate="%{x:,.1f}", textposition="outside", cliponaxis=False)
             change_fig.update_layout(showlegend=False, margin=dict(l=18, r=70, t=48, b=16))
@@ -1158,7 +1198,7 @@ def render_mealdo_store_sales_dashboard(frame: pd.DataFrame, previous: pd.DataFr
     trend_fig = px.line(
         daily_store, x="date", y="sales_million", color="store", markers=True,
         labels={"date": "일자", "sales_million": "순매출액", "store": "매장명"},
-        color_discrete_sequence=BLUE_PALETTE,
+        color_discrete_sequence=BREAD_PALETTE,
     )
     trend_fig.update_traces(
         hovertemplate="%{x|%Y-%m-%d}<br>순매출액: %{y:,.1f}백만원<extra>%{fullData.name}</extra>"
@@ -1176,21 +1216,22 @@ def render_mealdo_store_sales_dashboard(frame: pd.DataFrame, previous: pd.DataFr
     product_fig = px.bar(
         store_products, x="sales_million", y="product_name", orientation="h", color="quantity",
         labels={"sales_million": "순매출액", "product_name": "제품명", "quantity": "판매수량(EA)"},
-        color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
+        color_continuous_scale=[[0, BREAD_CREAM], [1, BREAD_PRIMARY]],
     )
     st.plotly_chart(style_figure(product_fig, 430), use_container_width=True)
 
     detail = store_summary.rename(columns={
-        "store": "매장명", "sales": "당기순매출", "previous_sales": "직전기간순매출",
+        "store": "매장명", "sales_million": "당기순매출(백만원)",
+        "previous_sales_million": "직전기간순매출(백만원)",
         "sales_share": "순매출비중", "quantity": "판매수량", "products": "판매제품수",
         "average_item_price": "평균제품단가",
-    })[["매장명", "당기순매출", "직전기간순매출", "순매출비중", "판매수량", "판매제품수", "평균제품단가"]]
-    section_title("매장 상세 실적", "원, EA, 종, %")
+    })[["매장명", "당기순매출(백만원)", "직전기간순매출(백만원)", "순매출비중", "판매수량", "판매제품수", "평균제품단가"]]
+    section_title("매장 상세 실적", "백만원, 원, EA, 종, %")
     st.dataframe(
-        detail.sort_values("당기순매출", ascending=False), hide_index=True, use_container_width=True,
+        detail.sort_values("당기순매출(백만원)", ascending=False), hide_index=True, use_container_width=True,
         column_config={
-            "당기순매출": st.column_config.NumberColumn(format="₩ %,.0f"),
-            "직전기간순매출": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "당기순매출(백만원)": st.column_config.NumberColumn(format="%,.1f"),
+            "직전기간순매출(백만원)": st.column_config.NumberColumn(format="%,.1f"),
             "순매출비중": st.column_config.NumberColumn(format="%,.1f%%"),
             "판매수량": st.column_config.NumberColumn(format="%,.0f"),
             "판매제품수": st.column_config.NumberColumn(format="%,.0f"),
@@ -1265,11 +1306,11 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) 
     )
     lifecycle_fig.add_bar(
         x=daily["date"], y=daily["quantity"], name="판매수량",
-        marker_color=COLORS["primary"], hovertemplate="%{x|%Y-%m-%d}<br>판매수량: %{y:,.1f} EA<extra></extra>",
+        marker_color=BREAD_PRIMARY, hovertemplate="%{x|%Y-%m-%d}<br>판매수량: %{y:,.1f} EA<extra></extra>",
     )
     lifecycle_fig.add_scatter(
         x=daily["date"], y=daily["quantity_ma7"], name="7일 이동평균",
-        mode="lines", line=dict(color=COLORS["accent"], width=3),
+        mode="lines", line=dict(color=BREAD_ACCENT, width=3),
         hovertemplate="%{x|%Y-%m-%d}<br>7일 평균: %{y:,.1f} EA<extra></extra>",
     )
     lifecycle_fig.update_xaxes(title_text="일자")
@@ -1283,7 +1324,7 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) 
         store_quantity = product_frame.groupby("store", as_index=False)["quantity"].sum().nlargest(15, "quantity").sort_values("quantity")
         fig = px.bar(store_quantity, x="quantity", y="store", orientation="h",
                      labels={"quantity": "판매수량(EA)", "store": "매장명"},
-                     color_discrete_sequence=[COLORS["primary"]])
+                     color_discrete_sequence=[BREAD_PRIMARY])
         st.plotly_chart(style_figure(fig, 400), use_container_width=True)
     with right:
         section_title("일별 폐기율 추이", "%")
@@ -1296,18 +1337,19 @@ def render_mealdo_lifecycle_dashboard(frame: pd.DataFrame, waste: pd.DataFrame) 
         st.plotly_chart(style_figure(waste_rate_fig, 400), use_container_width=True)
 
     if not product_waste.empty:
-        section_title("제품 폐기 사유", "EA, 원")
+        section_title("제품 폐기 사유", "EA, 백만원")
         reason_detail = (
             product_waste.groupby("waste_reason", as_index=False)
             .agg(폐기수량=("waste_quantity", "sum"), 폐기비용=("waste_amount", "sum"))
             .rename(columns={"waste_reason": "폐기사유"})
             .sort_values("폐기수량", ascending=False)
         )
+        reason_detail["폐기비용"] = reason_detail["폐기비용"] / 1_000_000
         st.dataframe(
             reason_detail, hide_index=True, use_container_width=True,
             column_config={
                 "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
-                "폐기비용": st.column_config.NumberColumn(format="₩ %,.0f"),
+                "폐기비용": st.column_config.NumberColumn(format="%,.1f"),
             },
         )
 
@@ -1343,9 +1385,9 @@ def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.Data
     total_waste_quantity = product_summary["waste_quantity"].sum()
     total_waste_amount = product_summary["waste_amount"].sum()
     cols = st.columns(4)
-    cols[0].metric("매장 순매출", won(product_summary["sales"].sum()), help="부가세 포함 실매출 ÷ 1.1")
+    cols[0].metric("매장 순매출", million_won(product_summary["sales"].sum()), help="부가세 포함 실매출 ÷ 1.1")
     cols[1].metric("판매수량", f"{total_sales_quantity:,.0f} EA")
-    cols[2].metric("폐기비용", won(total_waste_amount))
+    cols[2].metric("폐기비용", million_won(total_waste_amount))
     cols[3].metric("폐기율", f"{disposal_rate(total_sales_quantity, total_waste_quantity):,.1f}%",
                    help="폐기수량 ÷ (판매수량 + 폐기수량) × 100")
 
@@ -1383,7 +1425,7 @@ def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.Data
         sales_fig = px.bar(
             sales_top, x="sales_quantity", y="product_name", orientation="h",
             labels={"sales_quantity": "판매수량(EA)", "product_name": "제품명"},
-            color_discrete_sequence=[COLORS["primary"]],
+            color_discrete_sequence=[BREAD_PRIMARY],
         )
         st.plotly_chart(style_figure(sales_fig, 420), use_container_width=True)
 
@@ -1431,7 +1473,7 @@ def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.Data
         weekday_quantity_fig = go.Figure()
         weekday_quantity_fig.add_bar(
             x=weekday_summary["weekday"], y=weekday_summary["average_sales_quantity"],
-            name="일평균 판매수량", marker_color=COLORS["primary"],
+            name="일평균 판매수량", marker_color=BREAD_PRIMARY,
             text=weekday_summary["average_sales_quantity"].map(lambda value: f"{value:,.1f}"),
             textposition="outside",
             hovertemplate="%{x}요일<br>일평균 판매: %{y:,.1f} EA<extra></extra>",
@@ -1493,11 +1535,11 @@ def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.Data
     section_title(f"{selected_product} 판매 · 폐기 추이", "EA")
     trend_fig = go.Figure()
     trend_fig.add_bar(x=daily_product["date"], y=daily_product["sales_quantity"], name="판매수량",
-                      marker_color=COLORS["primary"], hovertemplate="%{x|%Y-%m-%d}<br>판매: %{y:,.1f} EA<extra></extra>")
+                      marker_color=BREAD_PRIMARY, hovertemplate="%{x|%Y-%m-%d}<br>판매: %{y:,.1f} EA<extra></extra>")
     trend_fig.add_bar(x=daily_product["date"], y=daily_product["waste_quantity"], name="폐기수량",
                       marker_color="#D95C5C", hovertemplate="%{x|%Y-%m-%d}<br>폐기: %{y:,.1f} EA<extra></extra>")
     trend_fig.add_scatter(x=daily_product["date"], y=daily_product["sales_ma7"], name="판매 7일 이동평균",
-                          mode="lines", line=dict(color=COLORS["accent"], width=3),
+                          mode="lines", line=dict(color=BREAD_ACCENT, width=3),
                           hovertemplate="%{x|%Y-%m-%d}<br>7일 평균: %{y:,.1f} EA<extra></extra>")
     trend_fig.update_layout(barmode="group")
     trend_fig.update_xaxes(title_text="일자")
@@ -1505,30 +1547,32 @@ def render_mealdo_store_diagnostic_dashboard(frame: pd.DataFrame, waste: pd.Data
     st.plotly_chart(style_figure(trend_fig, 420), use_container_width=True)
 
     if not store_waste.empty:
-        section_title("매장 폐기 사유 구성", "EA, 원")
+        section_title("매장 폐기 사유 구성", "EA, 백만원")
         reason_summary = store_waste.groupby("waste_reason", as_index=False).agg(
             폐기수량=("waste_quantity", "sum"), 폐기비용=("waste_amount", "sum")
         ).rename(columns={"waste_reason": "폐기사유"}).sort_values("폐기수량", ascending=False)
+        reason_summary["폐기비용"] = reason_summary["폐기비용"] / 1_000_000
         st.dataframe(
             reason_summary, hide_index=True, use_container_width=True,
             column_config={
                 "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
-                "폐기비용": st.column_config.NumberColumn(format="₩ %,.0f"),
+                "폐기비용": st.column_config.NumberColumn(format="%,.1f"),
             },
         )
 
     detail = product_summary.rename(columns={
-        "product_name": "제품명", "sales": "순매출", "sales_quantity": "판매수량",
-        "waste_quantity": "폐기수량", "waste_amount": "폐기비용", "waste_rate": "폐기율",
-    })[["제품명", "순매출", "판매수량", "폐기수량", "폐기비용", "폐기율"]]
-    section_title("매장 제품 상세 실적", "EA, 원, %")
+        "product_name": "제품명", "sales_million": "순매출(백만원)", "sales_quantity": "판매수량",
+        "waste_quantity": "폐기수량", "waste_amount": "폐기비용(백만원)", "waste_rate": "폐기율",
+    })[["제품명", "순매출(백만원)", "판매수량", "폐기수량", "폐기비용(백만원)", "폐기율"]]
+    detail["폐기비용(백만원)"] = detail["폐기비용(백만원)"] / 1_000_000
+    section_title("매장 제품 상세 실적", "EA, 백만원, %")
     st.dataframe(
         detail.sort_values(["폐기율", "폐기수량"], ascending=False), hide_index=True, use_container_width=True,
         column_config={
-            "순매출": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "순매출(백만원)": st.column_config.NumberColumn(format="%,.1f"),
             "판매수량": st.column_config.NumberColumn(format="%,.0f"),
             "폐기수량": st.column_config.NumberColumn(format="%,.0f"),
-            "폐기비용": st.column_config.NumberColumn(format="₩ %,.0f"),
+            "폐기비용(백만원)": st.column_config.NumberColumn(format="%,.1f"),
             "폐기율": st.column_config.NumberColumn(format="%,.1f%%"),
         },
     )
@@ -1576,7 +1620,7 @@ def render_mealdo_store_product_dashboard(frame: pd.DataFrame, waste: pd.DataFra
         hover_data={"sales_million": ":,.1f", "waste_quantity": ":,.0f"},
         labels={"daily_quantity": "일평균 판매수량(EA)", "waste_rate": "폐기율(%)",
                 "quantity": "누적 판매수량", "sales_million": "순매출액(백만원)", "waste_quantity": "폐기수량(EA)"},
-        color_continuous_scale=[[0, "#DCE9F6"], [1, "#D95C5C"]], size_max=48,
+        color_continuous_scale=[[0, BREAD_CREAM], [1, "#D95C5C"]], size_max=48,
     )
     st.plotly_chart(style_figure(fig, 430), use_container_width=True)
 
@@ -1586,7 +1630,7 @@ def render_mealdo_store_product_dashboard(frame: pd.DataFrame, waste: pd.DataFra
         rank = store_summary.nlargest(15, "quantity").sort_values("quantity")
         rank_fig = px.bar(rank, x="quantity", y="store", orientation="h",
                           labels={"quantity": "누적 판매수량(EA)", "store": "매장명"},
-                          color_discrete_sequence=[COLORS["primary"]])
+                          color_discrete_sequence=[BREAD_PRIMARY])
         st.plotly_chart(style_figure(rank_fig, 410), use_container_width=True)
     with right:
         section_title("매장별 폐기율 TOP 15", "%")
@@ -1625,14 +1669,14 @@ def render_paul_store_dashboard(frame: pd.DataFrame) -> None:
     left, right = st.columns([1.2, 1])
     with left:
         section_title("일별 매출 흐름", "백만원")
-        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[COLORS["secondary"]],
+        fig = px.bar(daily, x="date", y="sales_million", color_discrete_sequence=[PAUL_PRIMARY],
                      labels={"date": "일자", "sales_million": "매출(백만원)"})
         st.plotly_chart(style_figure(fig, 390), use_container_width=True)
     with right:
         section_title("매장 매출 TOP 15", "백만원")
         top_stores = store_sales.nlargest(15, "sales").sort_values("sales")
         fig = px.bar(top_stores, x="sales_million", y="store", orientation="h", color="sales_million",
-                     color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["secondary"]]],
+                     color_continuous_scale=[[0, PAUL_CREAM], [1, PAUL_PRIMARY]],
                      labels={"sales_million": "매출액", "store": "매장명"})
         fig.update_layout(coloraxis_showscale=False)
         st.plotly_chart(style_figure(fig, 390), use_container_width=True)
@@ -1643,7 +1687,7 @@ def render_paul_store_dashboard(frame: pd.DataFrame) -> None:
         index="store", columns="date", values="sales", aggfunc="sum", fill_value=0
     ).div(1_000_000).round(1)
     heat.columns = [date_value.strftime("%m/%d") for date_value in heat.columns]
-    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale="Blues",
+    heat_fig = px.imshow(heat, aspect="auto", color_continuous_scale=PAUL_SCALE,
                          labels={"x": "일자", "y": "매장", "color": "매출(백만원)"})
     st.plotly_chart(style_figure(heat_fig, 480), use_container_width=True)
 
@@ -1681,24 +1725,30 @@ if selected_brand == "밀도":
         st.error(f"매장 데이터를 불러오지 못했습니다: {exc}")
         st.stop()
 
+    mealdo_nav_labels = {
+        "밀도 Sales Overview": "01  종합 Sales Overview",
+        "밀도 매장 Sales 분석": "02  매장 Sales 분석",
+        "밀도 제품 Lifecycle": "03  제품 Lifecycle 분석",
+        "밀도 매장 상세 분석": "04  매장 폐기·판매 분석",
+        "밀도 매장×제품 분석": "05  매장 × 제품 운영 분석",
+    }
+    paul_nav_labels = {"폴바셋 Sales Overview": "01  Sales Overview"}
+    valid_store_pages = set(mealdo_nav_labels) | set(paul_nav_labels)
+    if st.session_state.get("store_selected_page") not in valid_store_pages:
+        st.session_state["store_selected_page"] = "밀도 Sales Overview"
+    selected_store_page = st.session_state["store_selected_page"]
+    sidebar_store_brand = "밀도" if selected_store_page in mealdo_nav_labels else "폴바셋"
+    sidebar_store_subtitle = (
+        "Store Sales Intelligence"
+        if selected_store_page in mealdo_nav_labels
+        else "Cafe Sales Intelligence"
+    )
+
     with st.sidebar:
-        st.markdown('<div class="brand">밀도</div>', unsafe_allow_html=True)
-        st.markdown('<div class="brand-sub">Store Sales Intelligence</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="brand">{sidebar_store_brand}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="brand-sub">{sidebar_store_subtitle}</div>', unsafe_allow_html=True)
         st.markdown("---")
         st.markdown('<div class="nav-title">STORE ANALYTICS</div>', unsafe_allow_html=True)
-        mealdo_nav_labels = {
-            "밀도 Sales Overview": "01  종합 Sales Overview",
-            "밀도 매장 Sales 분석": "02  매장 Sales 분석",
-            "밀도 제품 Lifecycle": "03  제품 Lifecycle 분석",
-            "밀도 매장 상세 분석": "04  매장 폐기·판매 분석",
-            "밀도 매장×제품 분석": "05  매장 × 제품 운영 분석",
-        }
-        paul_nav_labels = {"폴바셋 Sales Overview": "01  Sales Overview"}
-        valid_store_pages = set(mealdo_nav_labels) | set(paul_nav_labels)
-        if st.session_state.get("store_selected_page") not in valid_store_pages:
-            st.session_state["store_selected_page"] = "밀도 Sales Overview"
-        selected_store_page = st.session_state["store_selected_page"]
-
         with st.expander(
             "밀도 Sales Analytics",
             expanded=selected_store_page in mealdo_nav_labels,
@@ -1730,6 +1780,163 @@ if selected_brand == "밀도":
                         st.rerun()
 
     is_mealdo_page = selected_store_page.startswith("밀도")
+    if is_mealdo_page:
+        st.markdown(
+            """
+            <div class="mealdo-theme-marker"></div>
+            <style>
+                .mealdo-theme-marker { display: none; }
+                .stApp:has(.mealdo-theme-marker) { background: #FFFCF7; }
+                .stApp:has(.mealdo-theme-marker) .brand,
+                .stApp:has(.mealdo-theme-marker) .section-title,
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetricValue"] {
+                    color: #6B4226;
+                }
+                .stApp:has(.mealdo-theme-marker) .brand-sub,
+                .stApp:has(.mealdo-theme-marker) .section-sub,
+                .stApp:has(.mealdo-theme-marker) .section-unit,
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetricLabel"] {
+                    color: #8A6A50;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetric"] {
+                    background: #FFFFFF; border-color: #E8D6C3;
+                    box-shadow: 0 3px 14px rgba(122, 78, 45, .06);
+                    padding: 12px 15px; border-radius: 13px;
+                    min-height: 112px; box-sizing: border-box;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetricLabel"] {
+                    font-size: .78rem;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetricValue"] {
+                    font-size: 1.55rem;
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-mealdo_first_sale_metric [data-testid="stMetricValue"] {
+                    font-size: clamp(1.15rem, 1.3vw, 1.35rem);
+                    white-space: nowrap;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stMetricDelta"] {
+                    font-size: .72rem;
+                }
+                .stApp:has(.mealdo-theme-marker) .insight-box {
+                    background: linear-gradient(90deg, #F7EBDD, #FFF9F1);
+                    border-color: #DFC09D; color: #6B4B33;
+                }
+                .stApp:has(.mealdo-theme-marker) .insight-box b { color: #7A4E2D; }
+                .stApp:has(.mealdo-theme-marker)
+                [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
+                    background: rgba(255, 253, 249, .97);
+                    border-bottom-color: #E4CFB8;
+                    box-shadow: 0 8px 18px rgba(122, 78, 45, .07);
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-brand_navigation button[aria-pressed="true"],
+                .stApp:has(.mealdo-theme-marker) .st-key-brand_navigation [data-testid="stBaseButton-segmented_controlActive"] {
+                    background: #7A4E2D !important; border-color: #7A4E2D !important;
+                    color: #FFFFFF !important;
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-brand_navigation button[aria-pressed="true"] p,
+                .stApp:has(.mealdo-theme-marker) .st-key-brand_navigation [data-testid="stBaseButton-segmented_controlActive"] p {
+                    color: #FFFFFF !important;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_mealdo) details {
+                    border-color: #D9B995; background: #FFFDF9;
+                    box-shadow: 0 3px 10px rgba(122, 78, 45, .07);
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_mealdo) summary {
+                    background: #F7EBDD;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_mealdo) summary p {
+                    color: #6B4226;
+                }
+                .stApp:has(.mealdo-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_mealdo) summary p span {
+                    background: #E8D2BA !important; color: #7A4E2D !important;
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-store_nav_mealdo [data-testid="stBaseButton-primary"] {
+                    background: #7A4E2D; border-color: #7A4E2D; color: #FFFFFF;
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-store_nav_mealdo [data-testid="stBaseButton-secondary"] {
+                    background: #FFFFFF; border-color: #DFC09D; color: #6B4B33;
+                }
+                .stApp:has(.mealdo-theme-marker) .st-key-store_nav_mealdo [data-testid="stBaseButton-secondary"]:hover {
+                    background: #F7EBDD; border-color: #B18455; color: #6B4226;
+                }
+                .stApp:has(.mealdo-theme-marker) .status-pill {
+                    background: #F1E1CF; color: #7A4E2D;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div class="paul-theme-marker"></div>
+            <style>
+                .paul-theme-marker { display: none; }
+                .stApp:has(.paul-theme-marker) { background: #FCFAF9; }
+                .stApp:has(.paul-theme-marker) .brand,
+                .stApp:has(.paul-theme-marker) .section-title,
+                .stApp:has(.paul-theme-marker) [data-testid="stMetricValue"] {
+                    color: #241C1A;
+                }
+                .stApp:has(.paul-theme-marker) .brand-sub,
+                .stApp:has(.paul-theme-marker) .section-sub,
+                .stApp:has(.paul-theme-marker) .section-unit,
+                .stApp:has(.paul-theme-marker) [data-testid="stMetricLabel"] {
+                    color: #765A56;
+                }
+                .stApp:has(.paul-theme-marker) [data-testid="stMetric"] {
+                    background: #FFFFFF; border-color: #E2D2D4;
+                    box-shadow: 0 3px 14px rgba(76, 24, 38, .06);
+                }
+                .stApp:has(.paul-theme-marker) .insight-box {
+                    background: linear-gradient(90deg, #F7EAED, #FCF8F6);
+                    border-color: #D8B5BE; color: #422C2D;
+                }
+                .stApp:has(.paul-theme-marker) .insight-box b { color: #8E1738; }
+                .stApp:has(.paul-theme-marker)
+                [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
+                    background: rgba(252, 250, 249, .97);
+                    border-bottom-color: #D9C4C8;
+                    box-shadow: 0 8px 18px rgba(76, 24, 38, .07);
+                }
+                .stApp:has(.paul-theme-marker) .st-key-brand_navigation button[aria-pressed="true"],
+                .stApp:has(.paul-theme-marker) .st-key-brand_navigation [data-testid="stBaseButton-segmented_controlActive"] {
+                    background: #8E1738 !important; border-color: #8E1738 !important;
+                    color: #FFFFFF !important;
+                }
+                .stApp:has(.paul-theme-marker) .st-key-brand_navigation button[aria-pressed="true"] p,
+                .stApp:has(.paul-theme-marker) .st-key-brand_navigation [data-testid="stBaseButton-segmented_controlActive"] p {
+                    color: #FFFFFF !important;
+                }
+                .stApp:has(.paul-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_paul) details {
+                    border-color: #CDA6AF; background: #FFFCFC;
+                    box-shadow: 0 3px 10px rgba(76, 24, 38, .07);
+                }
+                .stApp:has(.paul-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_paul) summary {
+                    background: #F7EAED;
+                }
+                .stApp:has(.paul-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_paul) summary p {
+                    color: #4A242D;
+                }
+                .stApp:has(.paul-theme-marker) [data-testid="stExpander"]:has(.st-key-store_nav_paul) summary p span {
+                    background: #E9CDD4 !important; color: #8E1738 !important;
+                }
+                .stApp:has(.paul-theme-marker) .st-key-store_nav_paul [data-testid="stBaseButton-primary"] {
+                    background: #8E1738; border-color: #8E1738; color: #FFFFFF;
+                }
+                .stApp:has(.paul-theme-marker) .st-key-store_nav_paul [data-testid="stBaseButton-secondary"] {
+                    background: #FFFFFF; border-color: #D8B5BE; color: #422C2D;
+                }
+                .stApp:has(.paul-theme-marker) .st-key-store_nav_paul [data-testid="stBaseButton-secondary"]:hover {
+                    background: #F7EAED; border-color: #8E1738; color: #8E1738;
+                }
+                .stApp:has(.paul-theme-marker) .status-pill {
+                    background: #E9CDD4; color: #8E1738;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
     source_data = mealdo_data if is_mealdo_page else paul_data
     if source_data.empty:
         st.warning(f"{selected_store_page}에 사용할 CSV 데이터가 없습니다.")
@@ -1757,8 +1964,9 @@ if selected_brand == "밀도":
     with st.container(key="sticky_dashboard_header_mealdo"):
         store_header_left, store_header_right = st.columns([1, 1.35], vertical_alignment="center")
         with store_header_right:
-            store_date_columns = st.columns([.7, 1.3])
-            with store_date_columns[1]:
+            # 데르뜨 헤더와 동일한 위치에 조회 기간을 배치하고 우측 제어 영역은 비워 둡니다.
+            store_date_columns = st.columns([1.3, 1])
+            with store_date_columns[0]:
                 selected_store_dates = st.date_input(
                     "조회 기간",
                     value=(min_store_date, max_store_date),
@@ -1771,10 +1979,11 @@ if selected_brand == "밀도":
         with store_header_left:
             store_header_start = selected_store_dates[0] if len(selected_store_dates) >= 1 else min_store_date
             store_header_end = selected_store_dates[1] if len(selected_store_dates) >= 2 else store_header_start
-            st.markdown(f'<div class="brand">{store_header_title}</div>', unsafe_allow_html=True)
             st.markdown(
+                f'<div class="header-title-block">'
+                f'<div class="brand">{store_header_title}</div>'
                 f'<div class="brand-sub">{store_header_start:%Y.%m.%d} — {store_header_end:%Y.%m.%d} · '
-                f'{store_header_description}</div>',
+                f'{store_header_description}</div></div>',
                 unsafe_allow_html=True,
             )
 
@@ -1966,10 +2175,11 @@ with st.container(key="sticky_dashboard_header_dertte"):
     with header_left:
         selected_header_start = selected_dates[0] if len(selected_dates) >= 1 else default_start_date
         selected_header_end = selected_dates[1] if len(selected_dates) >= 2 else selected_header_start
-        st.markdown(f'<div class="brand">{header_title}</div>', unsafe_allow_html=True)
         st.markdown(
+            f'<div class="header-title-block">'
+            f'<div class="brand">{header_title}</div>'
             f'<div class="brand-sub">{selected_header_start:%Y.%m.%d} — {selected_header_end:%Y.%m.%d} · '
-            f'{header_description}</div>',
+            f'{header_description}</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -2399,7 +2609,12 @@ st.plotly_chart(channel_trend_fig, use_container_width=True)
 account_detail_placeholder = st.container()
 
 section_title("채널별 매출액 TOP 10 제품", "백만원")
-channel_product = filtered.groupby(["channel", "product_name"], as_index=False)["sales"].sum()
+channel_product_source = filtered.loc[
+    ~filtered["channel"].astype(str).str.contains("미매핑", na=False)
+]
+channel_product = channel_product_source.groupby(
+    ["channel", "product_name"], as_index=False
+)["sales"].sum()
 channel_product["sales_million"] = (channel_product["sales"] / 1_000_000).round(1)
 channel_product = (
     channel_product.sort_values(["channel", "sales"], ascending=[True, False])
