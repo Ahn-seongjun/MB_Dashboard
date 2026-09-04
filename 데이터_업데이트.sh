@@ -19,6 +19,9 @@ fi
 echo "밀도·폴바셋 월별 CSV 병합 중..."
 "$PYTHON" merge_mealdo_monthly_data.py
 
+echo "데이터 업데이트 이력 기록 중..."
+"$PYTHON" update_data_log.py
+
 BRANCH="$(git branch --show-current)"
 if [ -z "$BRANCH" ]; then
     echo "현재 Git 브랜치를 확인할 수 없습니다."
