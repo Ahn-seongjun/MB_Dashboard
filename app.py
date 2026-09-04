@@ -68,15 +68,17 @@ st.markdown(
     <style>
         .stApp { background: #FFFFFF; }
         [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #D9E3EC; }
-        /* Streamlit의 고정 상단 툴바 아래에서 본문이 시작되도록 여백 확보 */
-        .block-container { padding-top: 4.5rem; padding-bottom: 2rem; }
+        /* 대시보드에서 사용하지 않는 Streamlit 기본 Deploy 툴바와 빈 헤더 제거 */
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"] { display: none !important; }
+        .block-container { padding-top: .75rem; padding-bottom: 2rem; }
         .st-key-sticky_dashboard_header_dertte,
         .st-key-sticky_dashboard_header_mealdo {
             position: static;
         }
         [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_dertte),
         [data-testid="stLayoutWrapper"]:has(> .st-key-sticky_dashboard_header_mealdo) {
-            position: sticky; top: 3.75rem; z-index: 900;
+            position: sticky; top: 0; z-index: 900;
             background: rgba(255, 255, 255, .97);
             /* Streamlit wide 본문의 좌우 5rem 여백을 모두 상쇄해 헤더 띠를 전체 폭으로 확장 */
             width: calc(100% + 10rem) !important;
@@ -140,13 +142,13 @@ st.markdown(
             min-height: 112px; box-sizing: border-box;
         }
         .st-key-dertte_overview_kpis [data-testid="stMetricLabel"] {
-            font-size: .78rem;
+            font-size: .72rem;
         }
         .st-key-dertte_overview_kpis [data-testid="stMetricValue"] {
-            font-size: 1.55rem;
+            font-size: 1.32rem;
         }
         .st-key-dertte_overview_kpis [data-testid="stMetricDelta"] {
-            font-size: .72rem;
+            font-size: .66rem;
         }
         .st-key-dertte_current_month_metric [data-testid="stMetricDelta"] {
             visibility: hidden;
@@ -235,6 +237,11 @@ def won(value: float) -> str:
 def million_won(value: float) -> str:
     """금액을 백만원 단위로 고정해 표시합니다."""
     return f"{value / 1_000_000:,.1f}백만원"
+
+
+def million_won_integer(value: float) -> str:
+    """금액을 백만원 단위 정수로 반올림해 표시합니다."""
+    return f"{value / 1_000_000:,.0f}백만원"
 
 
 def percent_change(current: float, previous: float) -> float:
@@ -566,6 +573,18 @@ def style_figure(fig: go.Figure, height: int = 350) -> go.Figure:
     return fig
 
 
+def style_dertte_figure(fig: go.Figure, height: int = 350) -> go.Figure:
+    """데르뜨 금액·수량 축을 소수점 없는 형식으로 표시합니다."""
+    fig = style_figure(fig, height)
+    numeric_axis_keywords = ("매출", "수량", "단가", "금액")
+    for axis in [*fig.select_xaxes(), *fig.select_yaxes()]:
+        axis_title = axis.title.text or ""
+        if any(keyword in axis_title for keyword in numeric_axis_keywords):
+            axis.update(tickformat=",.0f", hoverformat=",.0f")
+    fig.update_coloraxes(colorbar=dict(tickformat=",.0f"))
+    return fig
+
+
 def section_title(title: str, unit: str) -> None:
     """그래프·표 제목 우측 상단에 단위를 일관된 형식으로 표시합니다."""
     st.markdown(
@@ -625,7 +644,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     summary_cols = st.columns(4)
     summary_cols[0].metric("활성 채널", f"{channel_count:,}개", help="Channel1_1 컬럼의 고유값 개수입니다.")
     summary_cols[1].metric("활성 매출처", f"{account_count:,}개")
-    summary_cols[2].metric("총 매출", million_won(total_sales))
+    summary_cols[2].metric("총 매출", million_won_integer(total_sales))
     summary_cols[3].metric("판매 수량", f"{total_quantity:,.0f}개")
 
     # 매출이 없는 날짜도 0으로 표시하기 위해 선택 기간의 날짜×채널 조합을 완성합니다.
@@ -642,7 +661,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         .rename("sales")
         .reset_index()
     )
-    daily_channel["sales_million"] = (daily_channel["sales"] / 1_000_000).round(1)
+    daily_channel["sales_million"] = (daily_channel["sales"] / 1_000_000).round(0)
     trend_fig = px.line(
         daily_channel,
         x="date",
@@ -665,11 +684,11 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     trend_fig.update_traces(
         hovertemplate=(
             "일자: %{x|%Y-%m-%d}<br>"
-            "매출: %{y:,.1f}백만원<extra>%{fullData.name}</extra>"
+            "매출: %{y:,.0f}백만원<extra>%{fullData.name}</extra>"
         )
     )
     section_title("채널별 일간 매출 흐름", "백만원")
-    st.plotly_chart(style_figure(trend_fig, 380), use_container_width=True)
+    st.plotly_chart(style_dertte_figure(trend_fig, 380), use_container_width=True)
     with st.expander("일간 채널 집계 데이터 보기 (단위: 백만원)"):
         daily_channel_table = (
             daily_channel.pivot(index="date", columns="channel", values="sales_million")
@@ -682,7 +701,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             use_container_width=True,
             hide_index=True,
             column_config={
-                column: st.column_config.NumberColumn(format="%,.1f")
+                column: st.column_config.NumberColumn(format="%,.0f")
                 for column in active_channels
             },
         )
@@ -698,7 +717,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         sales=("sales", "sum"),
         quantity=("quantity", "sum"),
     )
-    account_summary["sales_million"] = (account_summary["sales"] / 1_000_000).round(1)
+    account_summary["sales_million"] = (account_summary["sales"] / 1_000_000).round(0)
     account_summary["bubble_size"] = account_summary["quantity"].clip(lower=0)
 
     channel_sales = frame.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
@@ -712,7 +731,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     )
     st.markdown(
         f'<div class="insight-box">선택 기간 매출 1위 채널은 <b>{leading_channel["channel"]}</b>로 '
-        f'<b>{million_won(leading_channel["sales"])}</b>을 기록했습니다. 이 채널에서 판매수량이 가장 많은 제품은 '
+        f'<b>{million_won_integer(leading_channel["sales"])}</b>을 기록했습니다. 이 채널에서 판매수량이 가장 많은 제품은 '
         f'<b>{leading_product["product_name"]}</b> ({leading_product["quantity"]:,.0f}개)입니다.</div>',
         unsafe_allow_html=True,
     )
@@ -737,7 +756,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             autorange="reversed",
         )
         rank_fig.update_layout(legend_title_text="채널")
-        st.plotly_chart(style_figure(rank_fig, 430), use_container_width=True)
+        st.plotly_chart(style_dertte_figure(rank_fig, 430), use_container_width=True)
 
     with right:
         section_title("매출처별 매출 · 판매수량 포지션", "백만원, EA")
@@ -758,7 +777,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
             },
             size_max=42,
         )
-        st.plotly_chart(style_figure(scatter_fig, 430), use_container_width=True)
+        st.plotly_chart(style_dertte_figure(scatter_fig, 430), use_container_width=True)
 
     section_title("채널별 판매수량 TOP 제품", "EA")
     st.markdown('<div class="section-sub">각 채널에서 실제로 어떤 제품이 많이 움직였는지 판매수량 기준으로 비교합니다.</div>', unsafe_allow_html=True)
@@ -794,7 +813,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
     )
     channel_product_fig.update_xaxes(matches=None)
     channel_product_fig.for_each_annotation(lambda annotation: annotation.update(text=annotation.text.split("=")[-1]))
-    st.plotly_chart(style_figure(channel_product_fig, 270 * facet_rows), use_container_width=True)
+    st.plotly_chart(style_dertte_figure(channel_product_fig, 270 * facet_rows), use_container_width=True)
 
     section_title("채널별 MC 대분류 매출 비중", "%")
     st.markdown('<div class="section-sub">채널마다 어떤 제품군이 매출을 주도하는지 100% 구성비로 비교합니다.</div>', unsafe_allow_html=True)
@@ -808,7 +827,7 @@ def render_channel_detail(frame: pd.DataFrame, start_date: pd.Timestamp, end_dat
         labels={"channel": "채널", "sales": "매출 비중(%)", "category_large": "MC 대분류"},
     )
     category_fig.update_layout(barmode="stack", barnorm="percent")
-    st.plotly_chart(style_figure(category_fig, 380), use_container_width=True)
+    st.plotly_chart(style_dertte_figure(category_fig, 380), use_container_width=True)
 
 
 def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_date: pd.Timestamp) -> None:
@@ -819,7 +838,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
         quantity=("quantity", "sum"),
         weighted_unit_amount=("weighted_unit_amount", "sum"),
     )
-    product_summary["sales_million"] = (product_summary["sales"] / 1_000_000).round(1)
+    product_summary["sales_million"] = (product_summary["sales"] / 1_000_000).round(0)
     product_summary["average_unit_price"] = np.where(
         product_summary["quantity"] == 0,
         0,
@@ -830,7 +849,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
     total_sales = product_summary["sales"].sum()
     product_cols = st.columns(4)
     product_cols[0].metric("판매 제품", f"{product_summary['product_name'].nunique():,}개")
-    product_cols[1].metric("총 매출", million_won(total_sales))
+    product_cols[1].metric("총 매출", million_won_integer(total_sales))
     product_cols[2].metric("판매 수량", f"{product_summary['quantity'].sum():,.0f}개")
     product_cols[3].metric("평균 물품단가", won(weighted_unit_price(frame)))
 
@@ -838,7 +857,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
     large_category_sales = frame.groupby("category_large", as_index=False)["sales"].sum().nlargest(1, "sales").iloc[0]
     st.markdown(
         f'<div class="insight-box">매출 기여도가 가장 높은 제품은 <b>{leading_product["product_name"]}</b>로 '
-        f'<b>{million_won(leading_product["sales"])}</b>을 기록했습니다. MC 대분류에서는 '
+        f'<b>{million_won_integer(leading_product["sales"])}</b>을 기록했습니다. MC 대분류에서는 '
         f'<b>{large_category_sales["category_large"]}</b>가 전체 매출을 가장 크게 이끌고 있습니다.</div>',
         unsafe_allow_html=True,
     )
@@ -857,7 +876,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
             labels={"sales_million": "매출액", "product_name": "제품명"},
         )
         product_fig.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(style_figure(product_fig, 420), use_container_width=True)
+        st.plotly_chart(style_dertte_figure(product_fig, 420), use_container_width=True)
 
     with right:
         section_title("카테고리 매출 구성", "백만원, %")
@@ -865,7 +884,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
             ["category_large", "category_middle", "category_small", "category_detail"],
             as_index=False,
         )["sales"].sum()
-        category_sales["sales_million"] = (category_sales["sales"] / 1_000_000).round(1)
+        category_sales["sales_million"] = (category_sales["sales"] / 1_000_000).round(0)
         sunburst_fig = px.sunburst(
             category_sales,
             path=["category_large", "category_middle", "category_small", "category_detail"],
@@ -876,10 +895,10 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
         )
         sunburst_fig.update_traces(
             textinfo="label+percent parent",
-            hovertemplate="<b>%{label}</b><br>매출: %{value:,.1f}백만원<br>상위 분류 내 비중: %{percentParent:.1%}<extra></extra>",
+            hovertemplate="<b>%{label}</b><br>매출: %{value:,.0f}백만원<br>상위 분류 내 비중: %{percentParent:.1%}<extra></extra>",
         )
         sunburst_fig.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(style_figure(sunburst_fig, 420), use_container_width=True)
+        st.plotly_chart(style_dertte_figure(sunburst_fig, 420), use_container_width=True)
 
     section_title("제품별 매출 · 판매수량 포지션", "백만원, EA, 원")
     product_scatter = px.scatter(
@@ -898,7 +917,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
         size_max=55,
     )
     product_scatter.update_traces(marker=dict(opacity=.9, line=dict(color="#FFFFFF", width=1.5)))
-    st.plotly_chart(style_figure(product_scatter, 390), use_container_width=True)
+    st.plotly_chart(style_dertte_figure(product_scatter, 390), use_container_width=True)
 
     product_detail = product_summary.rename(
         columns={
@@ -912,7 +931,7 @@ def render_product_overview(frame: pd.DataFrame, start_date: pd.Timestamp, end_d
         use_container_width=True,
         hide_index=True,
         column_config={
-            "매출(백만원)": st.column_config.NumberColumn(format="%,.1f"),
+            "매출(백만원)": st.column_config.NumberColumn(format="%,.0f"),
             "판매수량": st.column_config.NumberColumn(format="%,.0f"),
             "평균물품단가": st.column_config.NumberColumn(format="₩ %,.0f"),
         },
@@ -2363,7 +2382,7 @@ with st.container(key="dertte_overview_kpis"):
     kpi_cols = st.columns(4)
     if frequency == "일간":
         kpi_cols[0].metric(
-            f"일매출 ({reference_date:%m/%d})", million_won(daily_sales),
+            f"일매출 {reference_date:%m/%d}", million_won_integer(daily_sales),
             period_delta(daily_sales, previous_day_sales, "전일 대비"),
             help=(
                 f"{reference_date:%Y.%m.%d} 일매출을 {previous_day:%Y.%m.%d} 일매출과 비교합니다."
@@ -2371,13 +2390,13 @@ with st.container(key="dertte_overview_kpis"):
         )
         with kpi_cols[1].container(key="dertte_current_month_metric"):
             st.metric(
-                f"당월 누계 ({reference_date.month}월)", million_won(current_month_sales),
+                f"당월 누계 {reference_date.month}월", million_won_integer(current_month_sales),
                 "높이 맞춤",
                 delta_color="off",
             )
         kpi_cols[2].metric(
-            f"전월 누계 ({previous_month_end.month}월)", million_won(previous_month_sales),
-            period_delta(current_month_sales, previous_month_sales, "당월 누계 증감"),
+            f"전월 누계 {previous_month_end.month}월", million_won_integer(previous_month_sales),
+            period_delta(current_month_sales, previous_month_sales, "전월 대비"),
             help=(
                 f"표시 금액은 {previous_month_start:%Y.%m.%d}-{previous_month_end:%Y.%m.%d} 누계입니다. "
                 f"증감률은 당월 누계({current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
@@ -2385,8 +2404,8 @@ with st.container(key="dertte_overview_kpis"):
             ),
         )
         kpi_cols[3].metric(
-            f"전년 동월 누계 ({previous_year_end:%y년 %m월})", million_won(previous_year_month_sales),
-            period_delta(current_month_sales, previous_year_month_sales, "당월 누계 전년 대비"),
+            f"전년 동월 누계 {previous_year_end:%y년 %m월}", million_won_integer(previous_year_month_sales),
+            period_delta(current_month_sales, previous_year_month_sales, "전년 대비"),
             help=(
                 f"표시 금액은 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 누계입니다. "
                 f"증감률은 당월 누계({current_month_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
@@ -2395,19 +2414,19 @@ with st.container(key="dertte_overview_kpis"):
         )
     else:
         kpi_cols[0].metric(
-            f"월 매출 ({reference_date.month}월)", million_won(current_month_sales),
+            f"월 매출 {reference_date.month}월", million_won_integer(current_month_sales),
             period_delta(current_month_sales, previous_month_sales, "전월 대비"),
         )
         kpi_cols[1].metric(
-            f"당해 누계 매출 ({reference_date.year}년)", million_won(current_year_ytd_sales),
-            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "전년 동기 대비"),
+            f"당해 누계 매출 {reference_date.year}년", million_won_integer(current_year_ytd_sales),
+            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "전년 대비"),
         )
         kpi_cols[2].metric(
-            f"전년 동월 매출 ({previous_year_end:%y년 %m월})", million_won(previous_year_month_sales),
+            f"전년 동월 매출 {previous_year_end:%y년 %m월}", million_won_integer(previous_year_month_sales),
             period_delta(
                 current_month_sales,
                 previous_year_month_sales,
-                "당월 전년 대비",
+                "전년 대비",
             ),
             help=(
                 f"표시 금액은 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 매출입니다. "
@@ -2416,8 +2435,8 @@ with st.container(key="dertte_overview_kpis"):
             ),
         )
         kpi_cols[3].metric(
-            f"전년 누계 매출 ({previous_year_end.year}년)", million_won(previous_year_ytd_sales),
-            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "당해 누계 전년 대비"),
+            f"전년 누계 매출 {previous_year_end.year}년", million_won_integer(previous_year_ytd_sales),
+            period_delta(current_year_ytd_sales, previous_year_ytd_sales, "전년 대비"),
             help=(
                 f"표시 금액은 {previous_year_ytd_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d} 누계입니다. "
                 f"증감률은 당해 누계({current_year_ytd_start:%Y.%m.%d}-{reference_date:%Y.%m.%d})가 "
@@ -2431,32 +2450,41 @@ st.caption(
     f"전년 동월 {previous_year_month_start:%Y.%m.%d}-{previous_year_end:%Y.%m.%d}"
 )
 
-section_title("기간별 판매 추이", "백만원, EA")
-trend_metric_label = st.segmented_control("추이 기준", ["매출액", "판매수량"], default="매출액")
-trend_source_column = "sales" if trend_metric_label == "매출액" else "quantity"
-trend_value_label = "매출액(백만원)" if trend_metric_label == "매출액" else "판매수량(EA)"
+section_title("기간별 판매 추이", "백만원")
+trend_value_label = "매출액(백만원)"
+
+# 누계 KPI·피벗은 선택일과 대응되는 동기간을 비교하지만, 추이 그래프의
+# 전월·전년 동월 선은 이미 확정된 각 비교월의 말일까지 모두 보여줍니다.
+previous_month_trend_end = previous_month_start + pd.offsets.MonthEnd(0)
+previous_year_month_trend_end = previous_year_month_start + pd.offsets.MonthEnd(0)
+previous_year_trend_end = pd.Timestamp(year=previous_year_end.year, month=12, day=31)
+daily_trend_day_count = max(
+    reference_date.days_in_month,
+    previous_month_trend_end.days_in_month,
+    previous_year_month_trend_end.days_in_month,
+)
 
 
-def comparison_trend_series(start, end, axis_kind, series_name):
+def comparison_trend_series(start, end, axis_kind, series_name, source_frame=None):
     """비교 기간의 실적을 일/월 번호 축에 맞춰 반환합니다."""
     start, end = pd.Timestamp(start).normalize(), pd.Timestamp(end).normalize()
-    period_rows = detail_history[
-        detail_history["date"].between(start, end)
+    trend_source = detail_history if source_frame is None else source_frame
+    period_rows = trend_source[
+        trend_source["date"].between(start, end)
     ].copy()
     axis_values = (
-        range(1, reference_date.days_in_month + 1)
+        range(1, daily_trend_day_count + 1)
         if axis_kind == "day"
         else range(1, 13)
     )
     date_part = period_rows["date"].dt.day if axis_kind == "day" else period_rows["date"].dt.month
-    values = period_rows.groupby(date_part)[trend_source_column].sum().reindex(axis_values)
+    values = period_rows.groupby(date_part)["sales"].sum().reindex(axis_values)
 
     # 판매가 없는 유효 기간은 0, 아직 도래하지 않았거나 존재하지 않는 날짜는 공백으로 둡니다.
     valid_until = end.day if axis_kind == "day" else end.month
     values.loc[values.index <= valid_until] = values.loc[values.index <= valid_until].fillna(0)
     values.loc[values.index > valid_until] = np.nan
-    if trend_metric_label == "매출액":
-        values = values / 1_000_000
+    values = values / 1_000_000
     return pd.DataFrame({"axis_value": list(axis_values), "구분": series_name, "value": values.values})
 
 
@@ -2467,7 +2495,10 @@ if frequency == "월간":
                 current_year_ytd_start, reference_date, "month", f"당해 ({reference_date.year}년)"
             ),
             comparison_trend_series(
-                previous_year_ytd_start, previous_year_end, "month", f"전년 ({previous_year_end.year}년)"
+                previous_year_ytd_start,
+                previous_year_trend_end,
+                "month",
+                f"전년 ({previous_year_end.year}년)",
             ),
         ],
         ignore_index=True,
@@ -2479,12 +2510,17 @@ else:
     trend = pd.concat(
         [
             comparison_trend_series(current_month_start, reference_date, "day", "당월"),
-            comparison_trend_series(previous_month_start, previous_month_end, "day", "전월"),
-            comparison_trend_series(previous_year_month_start, previous_year_end, "day", "전년 동월"),
+            comparison_trend_series(previous_month_start, previous_month_trend_end, "day", "전월"),
+            comparison_trend_series(
+                previous_year_month_start,
+                previous_year_month_trend_end,
+                "day",
+                "전년 동월",
+            ),
         ],
         ignore_index=True,
     )
-    trend_ticks = list(range(1, reference_date.days_in_month + 1))
+    trend_ticks = list(range(1, daily_trend_day_count + 1))
     trend_tick_text = [f"{day}일" for day in trend_ticks]
     trend_axis_label = "일"
 
@@ -2507,7 +2543,7 @@ trend_fig.update_traces(
     marker_size=8,
     marker_line_width=1.5,
     marker_line_color="#FFFFFF",
-    hovertemplate=f"%{{fullData.name}}<br>{trend_axis_label} %{{x}}<br>{trend_value_label} %{{y:,.1f}}<extra></extra>",
+    hovertemplate=f"%{{fullData.name}}<br>{trend_axis_label} %{{x}}<br>{trend_value_label} %{{y:,.0f}}<extra></extra>",
 )
 trend_fig.update_layout(hovermode="x unified", legend_title_text="비교 기간")
 trend_fig.update_xaxes(
@@ -2517,69 +2553,85 @@ trend_fig.update_xaxes(
     tickangle=0,
     range=[0.5, len(trend_ticks) + 0.5],
 )
-st.plotly_chart(style_figure(trend_fig, 390), use_container_width=True)
+st.plotly_chart(style_dertte_figure(trend_fig, 390), use_container_width=True)
 
-# 채널별 매출 흐름을 동일한 일/월 축에서 비교합니다.
+# 상세 실적은 아래에서 계산하지만 채널별 그래프보다 먼저 렌더링합니다.
+account_detail_placeholder = st.container()
+
+# 선택한 채널의 기간별 매출 흐름을 비교합니다.
 section_title("채널별 매출 추이", "백만원")
+channel_options = sorted(
+    channel
+    for channel in detail_history["channel"].dropna().unique()
+    if "미매핑" not in str(channel)
+)
+channel_trend_widget_key = "dertte_overview_trend_channel"
+if (
+    channel_trend_widget_key in st.session_state
+    and st.session_state[channel_trend_widget_key] not in channel_options
+):
+    del st.session_state[channel_trend_widget_key]
+selected_trend_channel = st.segmented_control(
+    "채널 선택",
+    channel_options,
+    default=channel_options[0],
+    key=channel_trend_widget_key,
+)
+channel_history = detail_history.loc[
+    detail_history["channel"] == selected_trend_channel
+]
 if frequency == "월간":
-    channel_period_start = current_year_ytd_start
+    channel_trend = pd.concat([
+        comparison_trend_series(
+            current_year_ytd_start, reference_date, "month", f"당해 {reference_date.year}년", channel_history
+        ),
+        comparison_trend_series(
+            previous_year_ytd_start,
+            previous_year_trend_end,
+            "month",
+            f"전년 {previous_year_end.year}년",
+            channel_history,
+        ),
+    ], ignore_index=True)
     channel_axis_values = list(range(1, 13))
     channel_axis_text = [f"{month}월" for month in channel_axis_values]
     channel_axis_label = "월"
-    channel_date_part = "month"
-    channel_valid_until = reference_date.month
 else:
-    channel_period_start = current_month_start
-    channel_axis_values = list(range(1, reference_date.days_in_month + 1))
+    channel_trend = pd.concat([
+        comparison_trend_series(current_month_start, reference_date, "day", "당월", channel_history),
+        comparison_trend_series(
+            previous_month_start,
+            previous_month_trend_end,
+            "day",
+            "전월",
+            channel_history,
+        ),
+        comparison_trend_series(
+            previous_year_month_start,
+            previous_year_month_trend_end,
+            "day",
+            "전년 동월",
+            channel_history,
+        ),
+    ], ignore_index=True)
+    channel_axis_values = list(range(1, daily_trend_day_count + 1))
     channel_axis_text = [f"{day}일" for day in channel_axis_values]
     channel_axis_label = "일"
-    channel_date_part = "day"
-    channel_valid_until = reference_date.day
-
-channel_period_rows = detail_history[
-    detail_history["date"].between(channel_period_start, reference_date)
-].copy()
-channel_period_rows["axis_value"] = getattr(channel_period_rows["date"].dt, channel_date_part)
-channel_trend_values = (
-    channel_period_rows.groupby(["channel", "axis_value"])["sales"].sum() / 1_000_000
-)
-channel_trend_parts = []
-for channel_name in selected_channels:
-    channel_values = channel_trend_values.get(channel_name, pd.Series(dtype=float)).reindex(
-        channel_axis_values
-    )
-    channel_values.loc[channel_values.index <= channel_valid_until] = (
-        channel_values.loc[channel_values.index <= channel_valid_until].fillna(0)
-    )
-    channel_values.loc[channel_values.index > channel_valid_until] = np.nan
-    channel_trend_parts.append(pd.DataFrame({
-        "axis_value": channel_axis_values,
-        "Channel1_1": channel_name,
-        "sales_million": channel_values.values,
-    }))
-channel_trend = pd.concat(channel_trend_parts, ignore_index=True)
 
 channel_trend_fig = px.line(
     channel_trend,
     x="axis_value",
-    y="sales_million",
-    color="Channel1_1",
-    symbol="Channel1_1",
-    line_dash="Channel1_1",
+    y="value",
+    color="구분",
+    symbol="구분",
+    line_dash="구분",
     markers=True,
-    color_discrete_map=CHANNEL_COLOR_MAP,
-    symbol_sequence=[
-        "circle", "square", "diamond", "triangle-up",
-        "cross", "star", "hexagon",
-    ],
-    line_dash_sequence=[
-        "solid", "dash", "dot", "dashdot",
-        "longdash", "longdashdot", "solid",
-    ],
+    color_discrete_sequence=["#0B3D91", "#2F80ED", "#7B61FF"],
+    symbol_sequence=["circle", "square", "diamond"],
+    line_dash_sequence=["solid", "dash", "dot"],
     labels={
         "axis_value": channel_axis_label,
-        "sales_million": "매출액(백만원)",
-        "Channel1_1": "채널",
+        "value": "매출액(백만원)",
     },
 )
 channel_trend_fig.update_traces(
@@ -2590,10 +2642,13 @@ channel_trend_fig.update_traces(
     marker_line_color="#FFFFFF",
     hovertemplate=(
         f"%{{fullData.name}}<br>{channel_axis_label} %{{x}}"
-        "<br>매출액(백만원) %{y:,.1f}<extra></extra>"
+        "<br>매출액(백만원) %{y:,.0f}<extra></extra>"
     ),
 )
-channel_trend_fig.update_layout(hovermode="x unified", legend_title_text="채널")
+channel_trend_fig.update_layout(
+    hovermode="x unified",
+    legend_title_text=f"{selected_trend_channel} 비교 기간",
+)
 channel_trend_fig.update_xaxes(
     tickmode="array",
     tickvals=channel_axis_values,
@@ -2601,12 +2656,9 @@ channel_trend_fig.update_xaxes(
     tickangle=0,
     range=[0.5, len(channel_axis_values) + 0.5],
 )
-channel_trend_fig = style_figure(channel_trend_fig, 390)
+channel_trend_fig = style_dertte_figure(channel_trend_fig, 390)
 channel_trend_fig.update_layout(margin=dict(l=18, r=18, t=48, b=0))
 st.plotly_chart(channel_trend_fig, use_container_width=True)
-
-# 상세 실적은 아래에서 계산하지만 판매 추이 바로 다음 위치에 렌더링합니다.
-account_detail_placeholder = st.container()
 
 section_title("채널별 매출액 TOP 10 제품", "백만원")
 channel_product_source = filtered.loc[
@@ -2615,7 +2667,7 @@ channel_product_source = filtered.loc[
 channel_product = channel_product_source.groupby(
     ["channel", "product_name"], as_index=False
 )["sales"].sum()
-channel_product["sales_million"] = (channel_product["sales"] / 1_000_000).round(1)
+channel_product["sales_million"] = (channel_product["sales"] / 1_000_000).round(0)
 channel_product = (
     channel_product.sort_values(["channel", "sales"], ascending=[True, False])
     .groupby("channel", group_keys=False)
@@ -2639,7 +2691,7 @@ for channel_tab, channel_name in zip(channel_tabs, channel_names):
             labels={"sales_million": "매출액", "product_name": "제품명"},
         )
         channel_product_fig.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(style_figure(channel_product_fig, 430), use_container_width=True)
+        st.plotly_chart(style_dertte_figure(channel_product_fig, 430), use_container_width=True)
 
 section_title("카테고리별 판매 제품 TOP 10", "EA, 백만원")
 category_levels = {
@@ -2729,13 +2781,13 @@ category_products = (
     .nlargest(10, "quantity")
     .sort_values("quantity")
 )
-category_products["sales_million"] = (category_products["sales"] / 1_000_000).round(1)
+category_products["sales_million"] = (category_products["sales"] / 1_000_000).round(0)
 category_product_fig = px.bar(
     category_products, x="quantity", y="product_name", orientation="h", color="sales_million",
     color_continuous_scale=[[0, "#DCE9F6"], [1, COLORS["primary"]]],
     labels={"quantity": "판매수량(EA)", "product_name": "제품명", "sales_million": "매출액(백만원)"},
 )
-st.plotly_chart(style_figure(category_product_fig, 420), use_container_width=True)
+st.plotly_chart(style_dertte_figure(category_product_fig, 420), use_container_width=True)
 
 metric_specs = {
     "daily_sales": detail_history["date"].eq(reference_date),
@@ -2807,24 +2859,17 @@ for _, channel_row in channel_metrics.sort_values("current_month_sales", ascendi
         "previous_year_ytd_change_rate": channel_row["previous_year_ytd_change_rate"],
     })
 
-daily_label = f"당일({reference_date:%y/%m/%d})"
+daily_label = f"Daily {reference_date:%y/%m/%d} ⓘ"
 current_month_label = (
-    f"당월({reference_date.month}월)"
-    if frequency == "월간" else f"당일 누계({reference_date.month}월)"
+    f"MTD {reference_date.month}월 ⓘ"
 )
-current_year_ytd_label = f"당해 누계({reference_date.year}년)"
-previous_month_label = f"전월 누계({previous_month_end.month}월)"
-previous_month_change_label = "전월 누계 증감률(당월 대비)"
-previous_year_ytd_label = f"전년 누계({previous_year_end:%y년})"
-previous_year_month_label = (
-    f"전년 동월({previous_year_end:%y년 %m월})"
-    if frequency == "월간" else f"전년 동월 누계({previous_year_end:%y년 %m월})"
-)
-previous_year_change_label = (
-    "전년 동월 증감률(당월 대비)"
-    if frequency == "월간" else "전년동월 누계 증감률(당월 대비)"
-)
-previous_year_ytd_change_label = "전년 누계 증감률(당해 대비)"
+current_year_ytd_label = f"YTD {reference_date.year} ⓘ"
+previous_month_label = f"PMTD {previous_month_end.month}월 ⓘ"
+previous_month_change_label = "MoM % ⓘ"
+previous_year_ytd_label = f"LY YTD {previous_year_end.year} ⓘ"
+previous_year_month_label = f"LY MTD {previous_year_end:%y/%m} ⓘ"
+previous_year_change_label = "YoY % ⓘ"
+previous_year_ytd_change_label = "YTD YoY % ⓘ"
 detail = pd.DataFrame(detail_rows).rename(columns={
     "daily_sales": daily_label,
     "current_month_sales": current_month_label,
@@ -2841,8 +2886,8 @@ if frequency == "월간":
         current_month_label,
         current_year_ytd_label,
         previous_month_label,
-        previous_month_change_label,
         previous_year_month_label,
+        previous_month_change_label,
         previous_year_change_label,
         previous_year_ytd_label,
         previous_year_ytd_change_label,
@@ -2852,12 +2897,23 @@ else:
         daily_label,
         current_month_label,
         previous_month_label,
-        previous_month_change_label,
         previous_year_month_label,
+        previous_month_change_label,
         previous_year_change_label,
     ]
+pivot_rate_columns = {
+    previous_month_change_label,
+    previous_year_change_label,
+    previous_year_ytd_change_label,
+}
+pivot_amount_columns = [
+    column for column in pivot_metric_columns if column not in pivot_rate_columns
+]
 detail = detail[["Channel1_1", *pivot_metric_columns]]
 detail = detail.rename(columns={"Channel1_1": "채널"})
+detail = detail.loc[
+    detail[pivot_amount_columns].fillna(0).ne(0).any(axis=1)
+].reset_index(drop=True)
 
 # 기존 Channel1_1 → Channel1_2 → 매출처 구조는 접이식 상세표로 유지합니다.
 account_metrics = None
@@ -2945,6 +3001,9 @@ account_detail = account_detail.rename(columns={
     "Channel1_1": "채널",
     "Channel1_2": "상세 채널",
 })
+account_detail = account_detail.loc[
+    account_detail[pivot_amount_columns].fillna(0).ne(0).any(axis=1)
+].reset_index(drop=True)
 
 def style_pivot_row(row: pd.Series) -> list[str]:
     is_summary = row["채널"] == "Total sum"
@@ -2976,10 +3035,47 @@ if daily_label in account_detail.columns:
         highlight_negative_daily, subset=[daily_label]
     )
 
-account_csv = account_detail.to_csv(index=False).encode("utf-8-sig")
+account_csv_frame = account_detail.copy()
+for column in pivot_amount_columns:
+    account_csv_frame[column] = account_csv_frame[column].map(
+        lambda value: "" if pd.isna(value) else f"{value:,.0f}"
+    )
+for column in pivot_rate_columns.intersection(account_csv_frame.columns):
+    account_csv_frame[column] = account_csv_frame[column].map(
+        lambda value: "" if pd.isna(value) else f"{value:,.1f}%"
+    )
+account_csv = account_csv_frame.to_csv(index=False).encode("utf-8-sig")
+pivot_column_help = {
+    daily_label: f"Daily: {reference_date:%Y.%m.%d} 하루의 매출입니다.",
+    current_month_label: (
+        f"MTD (Month-to-Date): {current_month_start:%Y.%m.%d}부터 "
+        f"{reference_date:%Y.%m.%d}까지의 당월 누계입니다."
+    ),
+    current_year_ytd_label: (
+        f"YTD (Year-to-Date): {current_year_ytd_start:%Y.%m.%d}부터 "
+        f"{reference_date:%Y.%m.%d}까지의 당해 누계입니다."
+    ),
+    previous_month_label: (
+        f"PMTD (Previous Month-to-Date): {previous_month_start:%Y.%m.%d}부터 "
+        f"{previous_month_end:%Y.%m.%d}까지의 전월 대응 누계입니다."
+    ),
+    previous_year_month_label: (
+        f"LY MTD (Last Year Month-to-Date): {previous_year_month_start:%Y.%m.%d}부터 "
+        f"{previous_year_end:%Y.%m.%d}까지의 전년 동월 누계입니다."
+    ),
+    previous_month_change_label: "MoM (Month-over-Month): 당월 MTD가 전월 PMTD보다 증감한 비율입니다.",
+    previous_year_change_label: "YoY (Year-over-Year): 당월 MTD가 전년 동월 LY MTD보다 증감한 비율입니다.",
+    previous_year_ytd_label: (
+        f"LY YTD (Last Year Year-to-Date): {previous_year_ytd_start:%Y.%m.%d}부터 "
+        f"{previous_year_end:%Y.%m.%d}까지의 전년 누계입니다."
+    ),
+    previous_year_ytd_change_label: "YTD YoY: 당해 YTD가 전년 LY YTD보다 증감한 비율입니다.",
+}
+percentage_columns = pivot_rate_columns
 number_columns = {
     column: st.column_config.NumberColumn(
-        format="%,.1f%%" if "증감률" in column else "%,.1f"
+        format="%,.1f%%" if column in percentage_columns else "%,.0f",
+        help=pivot_column_help.get(column),
     )
     for column in pivot_metric_columns
 }
